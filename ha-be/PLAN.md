@@ -1,7 +1,10 @@
+
 # DragnCards Go Backend — Architecture & Implementation Plan
 
 > **File purpose**: track design decisions and implementation progress.
 > Update status markers as work proceeds.
+
+Original logic - backend folder (written on elixir)
 
 ---
 
@@ -432,3 +435,4 @@ For each: room, plugin, deck, replay, lfg, alert, admin, custom_content:
 ---
 
 *Last updated: All decisions confirmed (Q1-Q7). Phase 0 not yet started.*
+
