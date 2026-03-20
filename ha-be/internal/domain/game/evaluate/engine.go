@@ -72,6 +72,10 @@ func evaluateArray(ctx *game.EvalContext, card *game.Card, code []any) (any, err
 			if idx == 1 {
 				isRaw = true
 			}
+		case "reduce":
+			if idx == 2 {
+				isRaw = true
+			}
 		case "for_each_key_val":
 			if idx == 3 {
 				isRaw = true

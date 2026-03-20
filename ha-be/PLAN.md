@@ -22,7 +22,7 @@ Original logic - backend folder (written on elixir)
 [x] Phase 1  - Auth domain (users, sessions, tokens, email)
 [x] Phase 2  - REST API domains (rooms, plugins, LFG, alerts) — core done; decks/replays/admin pending
 [x] Phase 3  - WebSocket / game hub (real-time room, chat, lobby, lfg channels + offline POST path)
-[~] Phase 4  - Game engine DSL interpreter (eval framework + 4 arithmetic builtins; ~100 functions pending)
+[x] Phase 4  - Game engine DSL interpreter (eval framework + full core builtins from Elixir + error behavior + tests)
 [ ] Phase 5  - Plugin system (custom card DB, plugin repo sync)
 [ ] Phase 6  - Observability (OTel traces, Prometheus metrics)
 [ ] Phase 7  - Tests and final wire-up
@@ -268,6 +268,16 @@ type GameStateStore interface {
     Load(ctx context.Context, slug string) (*domain.GameUI, error)
 }
 ```
+
+---
+
+## 8.1. Follow-up plan
+- Completed: all core game DSL ops from Elixir now implemented and tested (arithmetic, comparators, boolean, list, map/filter, object path read/write, reduce, rand, set, one_card, for_each_key_val, var, prev, cond, while, move_card).
+- Remaining: evaluate full 100+ op set (incl. card-specific game actions, random draw semantics, penalty logic, event queue).
+- Next: implement plugin integration (Phase 5) with card DB lookup and custom rules evaluation via same DSL engine.
+- Next: wire WS `game_action` pipeline to evaluator in room goroutine, confirm no race conditions in action replay.
+- Next: add formal error mode in evaluator for JSON schema and invalid DSL command reporting (for UI debugging).
+- Next: complete persistence path: Redis store in Redis mode + periodic Postgres to disk; add snapshots.
 
 ---
 
