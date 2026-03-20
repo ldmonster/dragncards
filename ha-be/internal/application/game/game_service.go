@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ldmonster/dragncards/ha-be/internal/application/plugin"
 	domaingame "github.com/ldmonster/dragncards/ha-be/internal/domain/game"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/game/evaluate"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
@@ -16,20 +17,26 @@ import (
 
 // GameService manages room goroutines and routes game actions.
 type GameService struct {
-	roomService *room.RoomService
-	registry    *RoomRegistry
-	stateStore  gamestate.GameStateStore // optional; nil = in-memory only
-	log         *slog.Logger
+	roomService   *room.RoomService
+	registry      *RoomRegistry
+	stateStore    gamestate.GameStateStore // optional; nil = in-memory only
+	pluginService *plugin.Service          // optional plugin DSL info source
+	log           *slog.Logger
 }
 
-// NewGameService creates a GameService with optional GameStateStore.
+// NewGameService creates a GameService with optional GameStateStore and optional plugin service.
 // Pass nil for stateStore to keep game state purely in-memory.
 func NewGameService(roomService *room.RoomService, registry *RoomRegistry, stateStore gamestate.GameStateStore) *GameService {
+	return NewGameServiceWithPlugin(roomService, registry, stateStore, nil)
+}
+
+func NewGameServiceWithPlugin(roomService *room.RoomService, registry *RoomRegistry, stateStore gamestate.GameStateStore, pluginService *plugin.Service) *GameService {
 	return &GameService{
-		roomService: roomService,
-		registry:    registry,
-		stateStore:  stateStore,
-		log:         slog.Default(),
+		roomService:   roomService,
+		registry:      registry,
+		stateStore:    stateStore,
+		pluginService: pluginService,
+		log:           slog.Default(),
 	}
 }
 
@@ -183,7 +190,13 @@ func (s *GameService) executeEvaluateItem(gameRoom *GameRoom, raw json.RawMessag
 		}
 	}
 
-	_, err := evaluate.EvaluateExpression(evaluate.NewEvalContext(gameRoom.State), nil, val)
+	ctx := evaluate.NewEvalContext(gameRoom.State)
+	if s.pluginService != nil {
+		if pluginCards, err := s.pluginService.LoadCardsByPlugin(); err == nil {
+			ctx.Vars["plugin_cards"] = pluginCards
+		}
+	}
+	_, err := evaluate.EvaluateExpression(ctx, nil, val)
 	return err
 }
 

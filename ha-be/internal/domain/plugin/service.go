@@ -57,3 +57,10 @@ func (s *PluginService) ListCustomCards(pluginID string) ([]*CustomCard, error) 
 	}
 	return s.repo.ListCustomCards(pluginID)
 }
+
+func (s *PluginService) FindCustomCardByID(id string) (*CustomCard, error) {
+	if id == "" {
+		return nil, fmt.Errorf("card_id required")
+	}
+	return s.repo.FindCustomCardByID(id)
+}

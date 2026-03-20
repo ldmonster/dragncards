@@ -103,7 +103,7 @@ func evaluateArray(ctx *game.EvalContext, card *game.Card, code []any) (any, err
 	// Dispatch to registered function implementations.
 	res, err := GetDefaultEvaluator().EvalFunction(cmd, ctx, args)
 	if err != nil {
-		return nil, err
+		return nil, NewEvalError(err)
 	}
 	ctx.Prev = res
 	return res, nil

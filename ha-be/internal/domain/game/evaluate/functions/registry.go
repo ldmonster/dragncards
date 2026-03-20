@@ -32,6 +32,7 @@ func RegisterBuiltins(r Registrar) {
 	r.RegisterFunction(&SetFunction{})
 	r.RegisterFunction(&ReduceFunction{})
 	r.RegisterFunction(&RandFunction{})
+	r.RegisterFunction(&PluginCardFunction{})
 	r.RegisterFunction(&OneCardFunction{})
 	r.RegisterFunction(&ForEachKeyValFunction{})
 	r.RegisterFunction(&VarFunction{})

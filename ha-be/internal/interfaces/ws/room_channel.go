@@ -9,6 +9,7 @@ import (
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
 	replayDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
+	"github.com/ldmonster/dragncards/ha-be/internal/domain/game/evaluate"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
 )
 
@@ -59,6 +60,16 @@ func HandleRoomChannel(h *Hub, svc *room.RoomService, gameSvc *game.GameService,
 		return reply, nil
 
 	case "game_action":
+		// Explicit game_action path for DSL payload handling.
+		// We expect payloads like {"actor":..., "action":"evaluate", "options":{...}}
+		// or legacy action updates. GameService handles evaluation and state updates.
+		var actionBody struct {
+			Actor   string          `json:"actor,omitempty"`
+			Action  string          `json:"action,omitempty"`
+			Options json.RawMessage `json:"options,omitempty"`
+		}
+		_ = json.Unmarshal(env.Payload, &actionBody)
+
 		var actionErr error
 		if gameSvc != nil {
 			actionErr = gameSvc.SendAction(roomSlug, env.Payload)
@@ -67,8 +78,16 @@ func HandleRoomChannel(h *Hub, svc *room.RoomService, gameSvc *game.GameService,
 		}
 		if actionErr != nil {
 			badStatePayload, _ := json.Marshal(map[string]string{"error": actionErr.Error()})
-			return &PhoenixEnvelope{Topic: env.Topic, Event: "bad_game_state", Payload: badStatePayload, Ref: env.Ref}, nil
+			eventName := "bad_game_state"
+			var evalErr *evaluate.EvalError
+			if errors.As(actionErr, &evalErr) {
+				eventName = "bad_game_action"
+			}
+			return &PhoenixEnvelope{Topic: env.Topic, Event: eventName, Payload: badStatePayload, Ref: env.Ref}, nil
 		}
+
+		// broadcast the original action payload back to room clients for history
+		// and transition notifications.
 		update := PhoenixEnvelope{Topic: env.Topic, Event: "send_update", Payload: env.Payload}
 		if msg, err := update.Marshal(); err == nil {
 			h.BroadcastToTopic(env.Topic, msg)

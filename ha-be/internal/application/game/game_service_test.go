@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ldmonster/dragncards/ha-be/internal/application/plugin"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/persistence"
 )
@@ -70,7 +71,11 @@ func TestGameServiceEvaluateActionList(t *testing.T) {
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
 	registry := NewRoomRegistry()
-	gameSvc := NewGameService(roomSvc, registry, nil)
+	pluginRepo := persistence.NewInMemoryPluginRepository()
+	pluginSvc := plugin.NewService(pluginRepo)
+	_, _ = pluginSvc.Create("test-plugin", true)
+	_, _ = pluginSvc.CreateCustomCard("p-1", "card-1", "{\"foo\":\"bar\"}")
+	gameSvc := NewGameServiceWithPlugin(roomSvc, registry, nil, pluginSvc)
 
 	ctx := context.Background()
 	gameUI, err := gameSvc.CreateGame(ctx, "test-game-eval", "owner-1")
@@ -78,7 +83,7 @@ func TestGameServiceEvaluateActionList(t *testing.T) {
 		t.Fatalf("CreateGame failed: %v", err)
 	}
 
-	payload := []byte(`{"action":"evaluate","options":{"action_list":[["add",1,2],["sub",5,3]]}}`)
+	payload := []byte(`{"action":"evaluate","options":{"action_list":[["add",1,2],["sub",5,3],["plugin_card","p-1","card-1"],["obj_set_by_path",{"a":{"b":1}},["a","b"],42],["reduce",["list",1,2,3],0,["add"]],["rand",5]]}}`)
 	if err := gameSvc.SendAction(gameUI.Slug, payload); err != nil {
 		t.Fatalf("SendAction failed: %v", err)
 	}

@@ -282,4 +282,13 @@ func TestEvaluateExpressionErrorBehaviorAndExtendedOps(t *testing.T) {
 	if r, ok := res.(int); !ok || r < 0 || r >= 5 {
 		t.Fatalf("rand(5) got %v", res)
 	}
+
+	ctx.Vars = map[string]any{"plugin_cards": map[string]map[string]any{"p1": {"c1": map[string]any{"id": "c1", "name": "PluginCard1"}}}}
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"plugin_card", "p1", "c1"})
+	if err != nil {
+		t.Fatalf("plugin_card failed: %v", err)
+	}
+	if card, ok := res.(map[string]any); !ok || card["id"] != "c1" {
+		t.Fatalf("plugin_card got %v", res)
+	}
 }

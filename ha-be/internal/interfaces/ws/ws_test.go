@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
+	"github.com/ldmonster/dragncards/ha-be/internal/application/plugin"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/lfg"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
@@ -47,7 +49,17 @@ func TestRoomChannelGameActionBroadcast(t *testing.T) {
 	rSvc := room.NewService(rRepo)
 	lSvc := lfg.NewService(persistence.NewInMemoryLfgRepository())
 	gameRegistry := game.NewRoomRegistry()
-	gameSvc := game.NewGameService(rSvc, gameRegistry, nil)
+	pluginRepo := persistence.NewInMemoryPluginRepository()
+	pluginSvc := plugin.NewService(pluginRepo)
+	pluginObj, err := pluginSvc.Create("test-plugin", true)
+	if err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
+	_, err = pluginSvc.CreateCustomCard(pluginObj.ID, "card-1", "{\"foo\":\"bar\"}")
+	if err != nil {
+		t.Fatalf("create custom card: %v", err)
+	}
+	gameSvc := game.NewGameServiceWithPlugin(rSvc, gameRegistry, nil, pluginSvc)
 	gameUI, err := gameSvc.CreateGame(context.Background(), "test", "owner")
 	if err != nil {
 		t.Fatalf("create game: %v", err)
@@ -97,13 +109,14 @@ func TestRoomChannelGameActionBroadcast(t *testing.T) {
 	}
 	_ = drainUntil(t, ctx, c2, "phx_reply")
 
-	action := PhoenixEnvelope{Topic: topic, Event: "game_action", Payload: json.RawMessage(`{"actor":"c2","action":"move"}`)}
+	actionPayload := fmt.Sprintf(`{"actor":"c2","action":"evaluate","options":{"action_list":[["plugin_card","%s","card-1"]]}}`, pluginObj.ID)
+	action := PhoenixEnvelope{Topic: topic, Event: "game_action", Payload: json.RawMessage(actionPayload)}
 	if err := wsjson.Write(ctx, c2, action); err != nil {
 		t.Fatalf("c2 game_action write: %v", err)
 	}
 
 	update := drainUntil(t, ctx, c1, "send_update")
-	if string(update.Payload) != `{"actor":"c2","action":"move"}` {
+	if string(update.Payload) != actionPayload {
 		t.Fatalf("unexpected payload: %s", string(update.Payload))
 	}
 
@@ -115,7 +128,7 @@ func TestRoomChannelGameActionBroadcast(t *testing.T) {
 	if len(actions) != 1 {
 		t.Fatalf("expected 1 persisted action, got %d", len(actions))
 	}
-	if string(actions[0]) != `{"actor":"c2","action":"move"}` {
+	if string(actions[0]) != actionPayload {
 		t.Fatalf("unexpected persisted action: %s", string(actions[0]))
 	}
 
