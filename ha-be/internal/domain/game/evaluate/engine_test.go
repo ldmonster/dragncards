@@ -118,7 +118,109 @@ func TestEvaluateExpressionMapFilter(t *testing.T) {
 	if res != 30 {
 		t.Fatalf("obj_get_val got %v", res)
 	}
+
+	// new collection op tests
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"set", map[string]any{"x": 1}, "x", 2})
+	if err != nil || res.(map[string]any)["x"] != 2 {
+		t.Fatalf("set failed: %v %v", err, res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"delete", map[string]any{"x": 1}, "x"})
+	if err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+	if _, ok := res.(map[string]any)["x"]; ok {
+		t.Fatalf("delete left x")
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"take", []any{"list", 1, 2, 3}, 2})
+	if err != nil || len(res.([]any)) != 2 {
+		t.Fatalf("take failed: %v %v", err, res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"drop", []any{"list", 1, 2, 3}, 2})
+	if err != nil || len(res.([]any)) != 1 {
+		t.Fatalf("drop failed: %v %v", err, res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"count", []any{"list", 1, 2, 3}})
+	if err != nil || res != 3 {
+		t.Fatalf("count failed: %v %v", err, res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"sort", []any{"list", 3, 1, 2}})
+	if err != nil {
+		t.Fatalf("sort failed: %v", err)
+	}
+	if len(res.([]any)) != 3 || res.([]any)[0] != 1 {
+		t.Fatalf("sort result wrong: %v", res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"group_by", []any{"list", map[string]any{"a":1}, map[string]any{"a":2}, map[string]any{"a":1}}, "a"})
+	if err != nil {
+		t.Fatalf("group_by failed: %v", err)
+	}
+	if groups, ok := res.(map[string]any); !ok || len(groups) != 2 {
+		t.Fatalf("group_by wrong: %v", res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"rand_between", 1, 5})
+	if err != nil {
+		t.Fatalf("rand_between failed: %v", err)
+	}
+	if rn, ok := res.(int); !ok || rn < 1 || rn >= 5 {
+		t.Fatalf("rand_between value wrong: %v", res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"match", []any{map[string]any{"id": "x"}, map[string]any{"id": "y"}}, "id", "y"})
+	if err != nil {
+		t.Fatalf("match failed: %v", err)
+	}
+	if m, ok := res.(map[string]any); !ok || m["id"] != "y" {
+		t.Fatalf("match result wrong: %v", res)
+	}
+
+	// event transaction semantics: draw from stack and update game state
+	stack := []any{"c1", "c2", "c3", "c4"}
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"draw", stack, 2})
+	if err != nil {
+		t.Fatalf("draw failed: %v", err)
+	}
+	drawMap, ok := res.(map[string]any)
+	if !ok {
+		t.Fatalf("draw returned wrong type: %T", res)
+	}
+	if len(drawMap["drawn"].([]any)) != 2 || len(drawMap["remaining"].([]any)) != 2 {
+		t.Fatalf("draw semantics wrong: %v", drawMap)
+	}
+	// apply to state via obj_set_by_path on stack map
+	state := map[string]any{"stack": stack}
+	_, err = evaluate.EvaluateExpression(ctx, nil, []any{"obj_set_by_path", state, []any{"stack"}, drawMap["remaining"]})
+	if err != nil {
+		t.Fatalf("obj_set_by_path stack update failed: %v", err)
+	}
+	if s, _ := state["stack"].([]any); len(s) != 2 {
+		t.Fatalf("stack update wrong: %v", s)
+	}
+
+	// discard + shuffle on deck operations
+	deck := []any{"c1", "c2", "c3", "c4"}
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"discard", deck, "c2"})
+	if err != nil {
+		t.Fatalf("discard failed: %v", err)
+	}
+	if len(res.([]any)) != 3 {
+		t.Fatalf("discard result wrong: %v", res)
+	}
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"shuffle", res})
+	if err != nil {
+		t.Fatalf("shuffle failed: %v", err)
+	}
+	if len(res.([]any)) != 3 {
+		t.Fatalf("shuffle result wrong: %v", res)
+	}
 }
+
 
 func TestEvaluateExpressionDSLHelpers(t *testing.T) {
 	ctx := evaluate.NewEvalContext(game.NewGameUI("room-1"))

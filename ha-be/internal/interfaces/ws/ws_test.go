@@ -121,6 +121,7 @@ func TestRoomChannelGameActionBroadcast(t *testing.T) {
 	}
 
 	// verify persisted action in room service
+	time.Sleep(50 * time.Millisecond)
 	actions, err := rSvc.ListActions(gameUI.Slug)
 	if err != nil {
 		t.Fatalf("list actions: %v", err)
