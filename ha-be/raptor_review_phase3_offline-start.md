@@ -2,7 +2,7 @@
 
 ## Scope
 Follow `review_instructions.md`: read plan, read progress files, review progress files with complaints to plan,
-compare progress files with implementation. No new features — only evaluation of existing plan progress.
+compare progress files with implementation. No new features - only evaluation of existing plan progress.
 
 ## Files read
 - `PLAN.md`
@@ -11,64 +11,45 @@ compare progress files with implementation. No new features — only evaluation 
 - `ha-be/internal/interfaces/ws/ws.go`
 - `ha-be/internal/interfaces/ws/ws_test.go`
 - `ha-be/internal/interfaces/ws/room_channel.go`
+- `ha-be/internal/application/game/game_service.go`
 - `ha-be/main.go`
 
 ## Plan checklist — Phase 3
 
-- [x] Phase 0 Foundation markers in `PLAN.md` — marked `[x]`
-- [x] Phase 1 Auth markers in `PLAN.md` — marked `[x]`
-- [x] Phase 2 REST API markers in `PLAN.md` — marked `[x]`
-- [x] Phase 3 WS markers in `PLAN.md` — marked `[x]`
+- [x] Offline POST path at `POST /be/socket` — implemented in `ws.go`
+- [x] `X-Client-ID` header for offline client ID; falls back to `offline-<timestamp>`
+- [x] `DispatchChannelMessage` dispatch path shared between WS and offline POST
+- [x] `phx_join` / `phx_leave` — topic subscribe/unsubscribe
+- [x] `game_action` — persisted via `gameSvc.SendAction`; broadcast `send_update` to topic
+- [x] `request_state` — returns action log as `send_state` from `gameSvc.GetGameUI` or fallback `svc.ListActions`
+- [x] `reset_game` / `reset_and_reload` — clears state via `gameSvc.ResetGame`; broadcast to topic
+- [x] `set_seat` — broadcast + `seats_changed` event generated
+- [x] `set_spectator` — broadcast + `spectators_changed` event generated
+- [x] `send_alert`, `go_to_replay_step`, `step_through` — broadcast to topic
+- [x] `save_replay` — persisted via `replaySvc.Save` in `room_channel.go`
+- [x] `users_changed` generated on phx_join / phx_leave via `broadcastUsersChanged`
+- [x] `gui_update` generated on game_action via `broadcastGUIUpdate`
+- [x] `bad_game_state` returned when `game_action` fails
+- [x] `AppendAction` errors logged via `s.log.Error(...)` — not silently dropped
+- [x] `gameSvc` passed to `NewWSHandler` in `main.go` — end-to-end wiring complete
+- [x] Tests: `TestWSHandlerPostOfflineClientIDUnique`, `TestWSHandlerPostOfflineGameActionBroadcastAndPersist`, `TestWSHandlerPostOfflineRequestState`, `TestWSHandlerPostOfflineResetGameBroadcast`
 
-## Offline POST path — implementation status
+## Findings vs Plan
 
-| Item | Status |
-|---|---|
-| `POST /be/socket` accepted alongside WS `GET /be/socket` | ✅ |
-| Phoenix envelope JSON decoded from request body | ✅ |
-| `X-Client-ID` header for offline client ID; `offline-<timestamp>` fallback | ✅ |
-| Routes through `DispatchChannelMessage` — same path as WS | ✅ |
-| Response encoded as Phoenix envelope | ✅ |
-| `client_id` injected into response payload | ✅ |
-| `game_action` requires game room to exist (via WS phx_join or POST /be/api/v1/games) | ✅ (by design) |
-
-## Supported offline events (room channel)
-
-| Event | Behaviour |
-|---|---|
-| `phx_join` | Subscribe clientID to topic |
-| `phx_leave` | Unsubscribe clientID from topic |
-| `game_action` | Persist via GameService + broadcast |
-| `request_state` | Return action log as `send_state` |
-| `reset_game` | GameService.ResetGame + broadcast |
-| `reset_and_reload` | Broadcast |
-| `set_seat` | Broadcast + seats_changed |
-| `set_spectator` | Broadcast + spectators_changed |
-| `send_alert` | Broadcast |
-| `go_to_replay_step` | Broadcast |
-| `step_through` | Broadcast |
-| `save_replay` | Persist via ReplayService + broadcast |
-
-## Tests (`ws_test.go`)
-
-- [x] `TestWSHandlerPostOfflineClientIDUnique`
-- [x] `TestWSHandlerPostOfflineGameActionBroadcastAndPersist`
-- [x] `TestWSHandlerPostOfflineRequestState`
-- [x] `TestWSHandlerPostOfflineResetGameBroadcast`
-
-## Complaints / gaps vs plan
-
-- WARN The offline POST path is not mentioned anywhere in `PLAN.md`. It is a branch-specific addition (`feat/offline-start`). Progress files document it but the plan never acknowledges it. This is not a code bug, but the plan is out of sync with what was built.
-- WARN `game_action` on offline POST: if the game room does not yet exist, a `bad_game_state` reply is returned with the error message. The error is surfaced but the error text is not particularly descriptive for the offline caller. No game room auto-creation path from POST.
+- WARN `PLAN.md` has no mention of an offline POST fallback path. The offline-start feature is a branch-specific addition not tracked in PLAN.md at all. Progress files document it but plan never acknowledges it.
+- WARN `set_seat` and `set_spectator` broadcast the raw payload but do not mutate application-level seat/spectator state in `GameUI` or any domain model. The generated `seats_changed` / `spectators_changed` events carry subscriber IDs only, not actual seat assignments.
+- WARN `chat`, `lobby`, `lfg`, `my_topic` channels are minimal stubs — basic broadcast only for offline POST, no message history, no reconnect handling.
+- WARN Offline POST `game_action` requires a game room to already exist in the registry (created via WS `phx_join` or `POST /be/api/v1/games`); the error message "room not found" is returned but omits any guidance on how to create the room.
 
 ## TODO
 
-- [ ] Document the offline POST path in `PLAN.md` under Phase 3 or a dedicated section so the plan reflects the branch feature
-- [ ] Add tests for chat/lobby/lfg/my_topic offline POST event flows
+- [ ] Add offline-start feature note to `PLAN.md`; plan currently has no awareness of the POST fallback path.
+- [ ] Persist seat/spectator assignments in `GameUI` when `set_seat` / `set_spectator` are received so `seats_changed` / `spectators_changed` carry actual state.
+- [ ] Add tests for chat/lobby/lfg/my_topic offline POST flows and WS reconnect handling.
+- [ ] Clarify `game_action` error response when game room does not exist yet.
 
 ## Outcome
-
-- [x] Review updated with accurate current implementation state
-- [x] All previous TODO items verified resolved: save_replay persists, AppendAction errors surfaced via log, all room events handled, GameService wired, tests present
-- [x] Review points tracked with check marks
-- [x] No new features suggested; findings are gaps vs the existing plan
+- [x] Review file updated with accurate current implementation state.
+- [x] Previously reported gaps resolved: `save_replay` handled, `users_changed`/`seats_changed`/`spectators_changed`/`gui_update`/`bad_game_state` events generated, `AppendAction` errors logged, `gameSvc` wired end-to-end.
+- [x] Review points tracked with check marks.
+- [x] No new features suggested; findings are gaps vs the existing plan.

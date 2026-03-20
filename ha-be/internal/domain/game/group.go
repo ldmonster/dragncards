@@ -21,18 +21,18 @@ func NewGroup(id, label, ownerID string) *Group {
 
 // AddStack appends a stack ID to the group's ordered list.
 func (g *Group) AddStack(stackID string) {
-if stackID == "" {
-return
-}
-g.StackIDs = append(g.StackIDs, stackID)
+	if stackID == "" {
+		return
+	}
+	g.StackIDs = append(g.StackIDs, stackID)
 }
 
 // RemoveStack removes a stack ID from the group (first occurrence).
 func (g *Group) RemoveStack(stackID string) {
-for i, id := range g.StackIDs {
-if id == stackID {
-g.StackIDs = append(g.StackIDs[:i], g.StackIDs[i+1:]...)
-return
-}
-}
+	for i, id := range g.StackIDs {
+		if id == stackID {
+			g.StackIDs = append(g.StackIDs[:i], g.StackIDs[i+1:]...)
+			return
+		}
+	}
 }

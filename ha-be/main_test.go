@@ -516,83 +516,83 @@ func TestPluginCreateAndCustomCardRoutes(t *testing.T) {
 }
 
 func TestAdminAndPluginPermissionEndpoints(t *testing.T) {
-userRepo := persistence.NewInMemoryUserRepository()
-identitySvc := identity.NewService(userRepo)
+	userRepo := persistence.NewInMemoryUserRepository()
+	identitySvc := identity.NewService(userRepo)
 
-roomRepo := persistence.NewInMemoryRoomRepository()
-roomSvc := room.NewService(roomRepo)
+	roomRepo := persistence.NewInMemoryRoomRepository()
+	roomSvc := room.NewService(roomRepo)
 
-pluginRepo := persistence.NewInMemoryPluginRepository()
-pluginSvc := plugin.NewService(pluginRepo)
+	pluginRepo := persistence.NewInMemoryPluginRepository()
+	pluginSvc := plugin.NewService(pluginRepo)
 
-lfgRepo := persistence.NewInMemoryLfgRepository()
-lfgSvc := lfg.NewService(lfgRepo)
+	lfgRepo := persistence.NewInMemoryLfgRepository()
+	lfgSvc := lfg.NewService(lfgRepo)
 
-alertRepo := persistence.NewInMemoryAlertRepository()
-alertSvc := alert.NewService(alertRepo)
+	alertRepo := persistence.NewInMemoryAlertRepository()
+	alertSvc := alert.NewService(alertRepo)
 
-deckSvc := deck.NewDeckService(persistence.NewInMemoryDeckRepository())
-replaySvc := replay.NewReplayService(persistence.NewInMemoryReplayRepository())
-gameRegistry := game.NewRoomRegistry()
-gameSvc := game.NewGameService(roomSvc, gameRegistry, nil)
-apiHandler := httpapi.NewAPIHandlerLegacy(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc)
-mux := httpapi.NewRouter(apiHandler)
+	deckSvc := deck.NewDeckService(persistence.NewInMemoryDeckRepository())
+	replaySvc := replay.NewReplayService(persistence.NewInMemoryReplayRepository())
+	gameRegistry := game.NewRoomRegistry()
+	gameSvc := game.NewGameService(roomSvc, gameRegistry, nil)
+	apiHandler := httpapi.NewAPIHandlerLegacy(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc)
+	mux := httpapi.NewRouter(apiHandler)
 
-// register user
-regBody := `{"email":"admin@x.com","password":"pass"}`
-req := httptest.NewRequest(http.MethodPost, "/be/api/v1/registration", strings.NewReader(regBody))
-req.Header.Set("Content-Type", "application/json")
-w := httptest.NewRecorder()
-mux.ServeHTTP(w, req)
-if w.Result().StatusCode != http.StatusCreated {
-t.Fatalf("expected 201 got %d", w.Result().StatusCode)
-}
+	// register user
+	regBody := `{"email":"admin@x.com","password":"pass"}`
+	req := httptest.NewRequest(http.MethodPost, "/be/api/v1/registration", strings.NewReader(regBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201 got %d", w.Result().StatusCode)
+	}
 
-// login
-loginBody := `{"email":"admin@x.com","password":"pass"}`
-req = httptest.NewRequest(http.MethodPost, "/be/api/v1/session", strings.NewReader(loginBody))
-req.Header.Set("Content-Type", "application/json")
-w = httptest.NewRecorder()
-mux.ServeHTTP(w, req)
-if w.Result().StatusCode != http.StatusOK {
-t.Fatalf("expected 200 got %d", w.Result().StatusCode)
-}
-var out map[string]string
-if err := json.NewDecoder(w.Result().Body).Decode(&out); err != nil {
-t.Fatalf("decode response: %v", err)
-}
-if out["auth_token"] == "" {
-t.Fatal("auth token missing")
-}
+	// login
+	loginBody := `{"email":"admin@x.com","password":"pass"}`
+	req = httptest.NewRequest(http.MethodPost, "/be/api/v1/session", strings.NewReader(loginBody))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+	var out map[string]string
+	if err := json.NewDecoder(w.Result().Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out["auth_token"] == "" {
+		t.Fatal("auth token missing")
+	}
 
-// plugin permission check
-req = httptest.NewRequest(http.MethodGet, "/be/api/v1/users/plugin_permission/plugin123/user123", nil)
-req.Header.Set("Authorization", "Bearer "+out["auth_token"])
-w = httptest.NewRecorder()
-mux.ServeHTTP(w, req)
-if w.Result().StatusCode != http.StatusOK {
-t.Fatalf("expected 200 got %d", w.Result().StatusCode)
-}
+	// plugin permission check
+	req = httptest.NewRequest(http.MethodGet, "/be/api/v1/users/plugin_permission/plugin123/user123", nil)
+	req.Header.Set("Authorization", "Bearer "+out["auth_token"])
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
 
-// admin contact
-contactBody := `{"email":"admin@x.com","message":"help"}`
-req = httptest.NewRequest(http.MethodPost, "/be/api/v1/admin_contact", strings.NewReader(contactBody))
-req.Header.Set("Content-Type", "application/json")
-req.Header.Set("Authorization", "Bearer "+out["auth_token"])
-w = httptest.NewRecorder()
-mux.ServeHTTP(w, req)
-if w.Result().StatusCode != http.StatusAccepted {
-t.Fatalf("expected 202 got %d", w.Result().StatusCode)
-}
+	// admin contact
+	contactBody := `{"email":"admin@x.com","message":"help"}`
+	req = httptest.NewRequest(http.MethodPost, "/be/api/v1/admin_contact", strings.NewReader(contactBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+out["auth_token"])
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected 202 got %d", w.Result().StatusCode)
+	}
 
-// update patreon
-patreonBody := `{"user_id":"user123","tier":"gold"}`
-req = httptest.NewRequest(http.MethodPost, "/be/api/v1/admin/update_user_patreon", strings.NewReader(patreonBody))
-req.Header.Set("Content-Type", "application/json")
-req.Header.Set("Authorization", "Bearer "+out["auth_token"])
-w = httptest.NewRecorder()
-mux.ServeHTTP(w, req)
-if w.Result().StatusCode != http.StatusOK {
-t.Fatalf("expected 200 got %d", w.Result().StatusCode)
-}
+	// update patreon
+	patreonBody := `{"user_id":"user123","tier":"gold"}`
+	req = httptest.NewRequest(http.MethodPost, "/be/api/v1/admin/update_user_patreon", strings.NewReader(patreonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+out["auth_token"])
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
 }

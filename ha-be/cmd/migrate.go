@@ -13,4 +13,3 @@ var migrateCmd = &cobra.Command{
 		fmt.Println("Migration command is stubbed in offline mode")
 	},
 }
-

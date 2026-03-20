@@ -84,5 +84,3 @@ func (f *DivFunction) Execute(ctx *evaluate.EvalContext, args []any) (any, error
 	}
 	return x / y, nil
 }
-
-

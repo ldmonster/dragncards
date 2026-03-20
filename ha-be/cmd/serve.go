@@ -13,4 +13,3 @@ var serveCmd = &cobra.Command{
 		fmt.Println("Server startup path is not implemented in offline legacy mode. Use go run main.go")
 	},
 }
-

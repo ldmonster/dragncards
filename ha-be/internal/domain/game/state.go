@@ -9,10 +9,10 @@ type GameUI struct {
 	Actions [][]byte `json:"actions"`
 
 	// Runtime game state — populated by the DSL evaluator.
-	Cards   map[string]*Card       `json:"cards"`
-	Stacks  map[string]*Stack      `json:"stacks"`
-	Groups  map[string]*Group      `json:"groups"`
-	Infos   map[string]*PlayerInfo `json:"player_infos"`
+	Cards  map[string]*Card       `json:"cards"`
+	Stacks map[string]*Stack      `json:"stacks"`
+	Groups map[string]*Group      `json:"groups"`
+	Infos  map[string]*PlayerInfo `json:"player_infos"`
 }
 
 func NewGameUI(slug string) *GameUI {
