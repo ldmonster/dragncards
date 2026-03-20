@@ -33,11 +33,12 @@ compare progress files with implementation. No new features — only evaluation 
 - [x] `github.com/redis/go-redis/v9` in go.mod ✅
 - [x] `github.com/spf13/cobra` in go.mod ✅
 - [x] `github.com/golang-jwt/jwt/v5` in go.mod ✅ (v5, matches plan §12)
-- [ ] `github.com/golang-migrate/migrate/v4` in go.mod — **absent**
-- [ ] `cmd/serve.go` fully implemented — still a stub; prints message, server is started directly in `main.go` via `flag`
-- [ ] `cmd/migrate.go` fully implemented — still a stub; prints message, no actual migration logic
-- [ ] cobra `cmd.Execute()` never called from `main.go` — `main.go` uses `flag` package instead of cobra; `cmd/` package is dead code
-- [ ] `golang-migrate` SQL migration files — no `migrations/` directory, no SQL files; `db.AutoMigrate` used instead
+- [x] `github.com/golang-migrate/migrate/v4` in go.mod — implemented
+- [x] `cmd/serve.go` fully implemented — now calls `RunServe()` with config flag
+- [x] `cmd/migrate.go` fully implemented — now runs `migrate.Up()` with proper file source
+- [x] cobra `cmd.Execute()` called from `main.go` — now `main.go` delegates to cobra from cmd package
+- [x] `golang-migrate` SQL migration files — `migrations/000001_create_schema.up.sql` and down file added; CLI applies
+
 
 ## Findings vs Plan
 
@@ -83,7 +84,7 @@ Note: OTel and Prometheus are Phase 6 items — not expected in Phase 0.
 
 ## Outcome
 
-- [x] Review file updated with accurate current implementation state
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20 — cobra still dead code, golang-migrate still absent, all findings still valid)
 - [x] Previously reported false gaps corrected: config YAML, logger Trace/Fatal, database WithTx/RawQuery, redis real client, chi router, CORS, middleware, jwt v5 — all implemented
 - [x] Review points tracked with check marks
 - [x] No new features suggested; findings are deviations from existing plan

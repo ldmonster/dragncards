@@ -51,4 +51,56 @@ func TestEvaluatorBuiltins(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected div-by-zero error, got nil")
 	}
+
+	// Comparison builtin tests
+	r, err = e.EvalFunction("eq", nil, []any{4, 4})
+	if err != nil || r != true {
+		t.Fatalf("eq builtin failed: %v result=%v", err, r)
+	}
+
+	r, err = e.EvalFunction("eq", nil, []any{"a", "a"})
+	if err != nil || r != true {
+		t.Fatalf("eq string builtin failed: %v result=%v", err, r)
+	}
+
+	r, err = e.EvalFunction("neq", nil, []any{4, 2})
+	if err != nil || r != true {
+		t.Fatalf("neq builtin failed: %v result=%v", err, r)
+	}
+
+	r, err = e.EvalFunction("gt", nil, []any{5, 3})
+	if err != nil || r != true {
+		t.Fatalf("gt builtin failed: %v result=%v", err, r)
+	}
+
+	r, err = e.EvalFunction("lt", nil, []any{2, 9})
+	if err != nil || r != true {
+		t.Fatalf("lt builtin failed: %v result=%v", err, r)
+	}
+
+	r, err = e.EvalFunction("gte", nil, []any{8, 8})
+	if err != nil || r != true {
+		t.Fatalf("gte builtin failed: %v result=%v", err, r)
+	}
+
+	r, err = e.EvalFunction("lte", nil, []any{7, 7})
+	if err != nil || r != true {
+		t.Fatalf("lte builtin failed: %v result=%v", err, r)
+	}
+
+	// Boolean operators
+	r, err = e.EvalFunction("and", nil, []any{true, false})
+	if err != nil || r != false {
+		t.Fatalf("and builtin failed: %v result=%v", err, r)
+	}
+
+	r, err = e.EvalFunction("or", nil, []any{true, false})
+	if err != nil || r != true {
+		t.Fatalf("or builtin failed: %v result=%v", err, r)
+	}
+
+	r, err = e.EvalFunction("not", nil, []any{true})
+	if err != nil || r != false {
+		t.Fatalf("not builtin failed: %v result=%v", err, r)
+	}
 }

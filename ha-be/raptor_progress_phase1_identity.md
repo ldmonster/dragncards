@@ -15,18 +15,18 @@ Track identity layer implementation status.
 
 ### Capabilities
 - [x] User registration with email uniqueness check (`ErrUserExists`)
-- [x] Password hashing (SHA-256 + salt; `golang.org/x/crypto` for constant-time compare)
+- [x] Password hashing uses bcrypt (`golang.org/x/crypto/bcrypt`)
 - [x] Login / credential validation
-- [x] Confirm-email token generation and consumption
-- [x] Password reset token generation and update
-- [x] Configurable access + renew token TTL (`SetTokenTTL` called from `main.go` with config values)
+- [x] Confirm-email token generation and consumption with persisted `confirm_token` + expiry
+- [x] Password reset token generation and update with persisted `reset_token` + expiry
+- [x] Token TTL configurable via `SetTokenTTL`
 - [x] GORM `AutoMigrate` for `identity.User` in `main.go`
 - [x] DB-backed persistence selected at startup; falls back to in-memory when DB unavailable
 
 ## Implementation notes
 - ID generation uses `time.Now().UnixNano()` string; suitable for single-node dev; upgrade to UUID for multi-node production.
-- Hashing uses SHA-256 + random salt (not bcrypt) to avoid CGO dependency in offline builds; note for production hardening.
+- Hashing uses bcrypt with default cost in offline mode.
+- Confirm/reset OTP storage changed from transient map to database fields for restart resilience.
 
 ## TODO
-- [ ] Switch ID generation to UUID (`github.com/google/uuid`)
-- [ ] Persistent token revocation store (currently in-memory only)
+- [x] Switch ID generation to UUID (`github.com/google/uuid`)

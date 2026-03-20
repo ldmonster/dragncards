@@ -50,6 +50,34 @@ func (r *GormUserRepository) FindByID(id string) (*identity.User, error) {
 	return &user, nil
 }
 
+func (r *GormUserRepository) FindByConfirmToken(token string) (*identity.User, error) {
+	if token == "" {
+		return nil, ErrNoUser
+	}
+	var user identity.User
+	if err := r.db.Where("confirm_token = ?", token).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, ErrNoUser
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *GormUserRepository) FindByResetToken(token string) (*identity.User, error) {
+	if token == "" {
+		return nil, ErrNoUser
+	}
+	var user identity.User
+	if err := r.db.Where("reset_token = ?", token).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, ErrNoUser
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *GormUserRepository) Update(user *identity.User) error {
 	if user == nil || user.ID == "" {
 		return errors.New("invalid user")

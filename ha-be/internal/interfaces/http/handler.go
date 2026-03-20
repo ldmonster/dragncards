@@ -249,7 +249,10 @@ func (h *APIHandler) ConfirmEmail(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	token := r.URL.Query().Get("token")
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
 	if token == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -1078,7 +1081,8 @@ func NewRouter(h *APIHandler) http.Handler {
 	r.Post("/be/api/v1/session", h.Login)
 	r.Delete("/be/api/v1/session", h.Logout)
 	r.Post("/be/api/v1/session/renew", h.RenewSession)
-	r.Get("/be/api/v1/confirm-email", h.ConfirmEmail)
+	r.Get("/be/api/v1/confirm-email/{token}", h.ConfirmEmail)
+	r.Get("/be/api/v1/confirm-email", h.ConfirmEmail) // legacy query param support
 	r.Post("/be/api/v1/reset-password", h.RequestPasswordReset)
 	r.Post("/be/api/v1/reset-password/update", h.ResetPassword)
 	r.Post("/be/api/v1/recaptcha/verify", h.VerifyRecaptcha)

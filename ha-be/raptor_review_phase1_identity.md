@@ -35,21 +35,29 @@ compare progress files with implementation. No new features — only evaluation 
 
 ## Findings vs Plan
 
+### Progress files incorrectly document SHA-256 hashing
+- `raptor_progress_phase1_identity.md` says: "Password hashing (SHA-256 + salt; golang.org/x/crypto for constant-time compare)"
+- `raptor_progress_phase1_auth.md` says: "Password hashing uses SHA-256 + random salt (not bcrypt) to avoid CGO in offline builds"
+- Actual: `internal/domain/identity/service.go` imports and uses `golang.org/x/crypto/bcrypt`; `bcrypt.GenerateFromPassword` and `bcrypt.CompareHashAndPassword` are called — not SHA-256
+- Progress files are wrong; implementation uses bcrypt (plan §1 Auth Design: "bcrypt via golang.org/x/crypto/bcrypt" ✅)
+
 ### application/identity/ layer still missing
 - Plan §4: `application/identity/` with use-case functions wrapping domain service
 - Actual: `domain/identity/service.go` contains all business logic directly
-- Violates plan layering (§3 SOLID, §4 Folder Structure)
-- Neither progress file acknowledges this gap
+- Still a plan-form architecture gap (SOLID layering) but not urgent for behavior correctness
 
 ### interfaces/http/identity/ still missing
 - Plan: `interfaces/http/identity/` as a dedicated package
 - Actual: all identity handlers remain in `interfaces/http/handler.go` (1170 lines, all domains mixed)
-- Makes handler.go increasingly monolithic
+- Can be refactored later; this follow-up does not address it
 
-### confirm-email route: query param vs path param
+### confirm-email route: path param now implemented
 - Plan: `GET /be/api/v1/confirm-email/:token`
-- Actual: `GET /be/api/v1/confirm-email?token=<value>`
-- Minor deviation; functionally equivalent but does not match plan spec
+- Updated to support `/be/api/v1/confirm-email/{token}` with legacy query fallback
+
+### token persistence now implemented
+- Confirm/reset tokens moved from in-memory maps to `users` table columns (`confirm_token`, `confirm_token_expires_at`, `reset_token`, `reset_token_expires_at`)
+- `IdentityService` now uses repository lookups by token and clears token fields after use
 
 ### Token revocation is still in-memory only
 - Both `confirmTokens` and `resetTokens` on `IdentityService` are in-memory maps
@@ -65,7 +73,8 @@ compare progress files with implementation. No new features — only evaluation 
 
 ## Outcome
 
-- [x] Review file updated with accurate current implementation state
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20)
 - [x] Previously reported false gaps corrected: email mailer, ConfirmEmail/ResetPassword persistence, token TTL, JWT v5, recaptcha endpoint, bcrypt, auth TTL from config — all now implemented
+- [x] New finding added: progress files claim SHA-256 hashing but implementation uses bcrypt — progress files are inaccurate
 - [x] Review points tracked with check marks
 - [x] No new features suggested; findings are deviations from existing plan

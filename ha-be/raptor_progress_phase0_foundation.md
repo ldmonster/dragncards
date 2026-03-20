@@ -10,9 +10,11 @@
 - [x] Platform database (`internal/platform/database/database.go`) — GORM + PostgreSQL, `WithTx`, generic `RawQuery[T]`
 - [x] Platform redis (`internal/platform/redis/redis.go`) — optional `go-redis/v9` client; safe no-op when unconfigured
 - [x] chi router (`go-chi/chi v5`) with global CORS and middleware chain in `NewRouter`
-- [x] Cobra CLI (`cmd/root.go`, `cmd/serve.go`, `cmd/migrate.go`)
-- [x] `db.AutoMigrate` in `main.go` migrates all GORM models on startup
+- [x] Cobra CLI (`cmd/root.go`, `cmd/serve.go`, `cmd/migrate.go`) with active command execution
+- [x] SQL migrations support via `golang-migrate` and `migrations/` directory; `migrate` command available
+- [x] `db.AutoMigrate` in `cmd/serve.go` migrates all GORM models on startup (legacy fallback)
 - [x] All tests green — `go test ./...` passes (2026-03-20)
+
 
 ## Dependencies (go.mod)
 | Package | Version | Role |

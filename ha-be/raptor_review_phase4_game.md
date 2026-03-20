@@ -7,6 +7,7 @@ compare progress files with implementation. No new features - only evaluation of
 ## Files read
 - `PLAN.md` (Phase 4, §8, §3, §4)
 - `raptor_progress_phase4_game.md`
+- `ha-be/main.go` (re-read 2026-03-20)
 - `ha-be/internal/domain/game/state.go`
 - `ha-be/internal/domain/game/card.go`
 - `ha-be/internal/domain/game/stack.go`
@@ -52,19 +53,19 @@ compare progress files with implementation. No new features - only evaluation of
 ## Findings vs Plan
 
 - WARN ~95 of the ~100 planned DSL functions are not yet implemented. Only `noop` + 4 arithmetic builtins are registered. The evaluator framework is solid and open/closed for addition, but the actual game logic cannot run without the remaining functions. Progress file tracks this as current in-progress TODO.
-- WARN `infrastructure/gamestate/` is wired in code but `main.go` passes `nil` for `stateStore` to `NewGameService` — neither Redis nor Postgres game-state persistence is active at runtime. Game state is lost on restart.
-- WARN `game_states` table (used by `PostgresGameStateStore`) is not included in the `db.AutoMigrate` call in `main.go` — table will not be created automatically.
-- WARN `RedisGameStateStore` requires the Redis client; `main.go` does not initialise a Redis client even when `cfg.Redis.URL` is set — selection logic between Redis and Postgres store is absent.
+- OK `infrastructure/gamestate/` is now fully wired in `main.go`: if `cfg.Redis.URL` is set, a Redis client is initialised and `NewRedisGameStateStore` is used; otherwise `NewPostgresGameStateStore` is used; in-memory fallback when neither DB nor Redis is available. Fixed as of 2026-03-20.
+- OK `game_states` table is created by `pgStore.AutoMigrate()` called in `main.go` (line 107) whenever a Postgres store is selected. Fixed as of 2026-03-20.
 
 ## TODO
 
 - [ ] Port remaining ~95 DSL functions into `evaluate/functions/` per plan §8.
-- [ ] Add store selection logic in `main.go`: if `cfg.Redis.URL` set, use `RedisGameStateStore`; else use `PostgresGameStateStore`; pass chosen store to `NewGameService`.
-- [ ] Add `gameStateRecord` (game_states table) to `db.AutoMigrate` list in `main.go`.
-- [ ] Initialise Redis client in `main.go` when `cfg.Redis.URL` is non-empty; pass to `NewRedisGameStateStore`.
+- [x] Add store selection logic in `main.go` — Redis/Postgres/in-memory selection implemented (2026-03-20).
+- [x] `game_states` table created via `pgStore.AutoMigrate()` in `main.go` (2026-03-20).
+- [x] Redis client initialised in `main.go` when `cfg.Redis.URL` is non-empty (2026-03-20).
 
 ## Outcome
-- [x] Review file updated with accurate current implementation state.
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20).
 - [x] Previously reported false gaps resolved: card/stack/group/player_info models exist; GameUI has all maps; EvalContext has typed accessors; variable.go is standalone; GameFunction and GameVariable use *EvalContext; gamestate stores all exist; ctx.Done() and Close() present; AppendAction errors logged.
+- [x] Stale TODOs resolved: stateStore selection logic wired; game_states AutoMigrate wired; Redis client init wired — all three fixed in main.go.
 - [x] Review points tracked with check marks.
 - [x] No new features suggested; findings are gaps vs the existing plan.

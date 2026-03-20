@@ -125,7 +125,7 @@ compare progress files with implementation. No new features — only evaluation 
 
 ## Outcome
 
-- [x] Review updated with accurate current implementation state
+- [x] Review updated with accurate current implementation state (re-reviewed 2026-03-20 — all findings still valid)
 - [x] False complaints from previous review removed: deck/replay domains exist, chi router used, all route paths corrected, lfg/alert AutoMigrate fixed
 - [x] Review points tracked with check marks
 - [x] No new features suggested; findings are deviations from existing plan

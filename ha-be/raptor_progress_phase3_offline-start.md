@@ -47,3 +47,4 @@ Track implementation status of offline-compatible behavior for the WebSocket / c
 - [ ] Document `/be/socket` offline POST path and envelope schema in README
 - [ ] Hook LFG and chat channel events to persistent stores where currently missing
 - [ ] Add `step_through` / `go_to_replay_step` replay persistence (Phase 4 overlap)
+- [x] Persist seat/spectator assignments in GameUI and compose `seats_changed`/`spectators_changed` payloads from state

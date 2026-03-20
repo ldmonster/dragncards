@@ -33,7 +33,7 @@ func drainUntil(t *testing.T, ctx context.Context, c *websocket.Conn, targetEven
 		}
 		// allow server-push side-channel events to pass through silently
 		switch env.Event {
-		case "users_changed", "seats_changed", "spectators_changed", "gui_update":
+		case "users_changed", "seats_changed", "spectators_changed", "gui_update", "current_state":
 			continue
 		default:
 			t.Fatalf("unexpected event %q while waiting for %q", env.Event, targetEvent)
@@ -125,6 +125,102 @@ func TestRoomChannelGameActionBroadcast(t *testing.T) {
 	}
 	if len(state.Actions) != 1 {
 		t.Fatalf("expected game ui to have 1 action, got %d", len(state.Actions))
+	}
+}
+
+func TestRoomChannelSetSeatSpectatorState(t *testing.T) {
+	hub := NewHub()
+	rRepo := persistence.NewInMemoryRoomRepository()
+	rSvc := room.NewService(rRepo)
+	lSvc := lfg.NewService(persistence.NewInMemoryLfgRepository())
+	gameRegistry := game.NewRoomRegistry()
+	gameSvc := game.NewGameService(rSvc, gameRegistry, nil)
+	gameUI, err := gameSvc.CreateGame(context.Background(), "test", "owner")
+	if err != nil {
+		t.Fatalf("create game: %v", err)
+	}
+	topic := "room:" + gameUI.Slug
+	replaySvc := replay.NewReplayService(persistence.NewInMemoryReplayRepository())
+	handler := NewWSHandler(hub, rSvc, lSvc, gameSvc, replaySvc)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	token, err := auth.GenerateToken("userA", time.Hour)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/be/socket?token=" + token
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	c1, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial c1: %v", err)
+	}
+	defer c1.Close(websocket.StatusNormalClosure, "")
+
+	join := PhoenixEnvelope{Topic: topic, Event: "phx_join", Payload: json.RawMessage(`{"when":"t1"}`)}
+	if err := wsjson.Write(ctx, c1, join); err != nil {
+		t.Fatalf("c1 join write: %v", err)
+	}
+	_ = drainUntil(t, ctx, c1, "phx_reply")
+
+	// set_seat via offline POST
+	seatEnv := PhoenixEnvelope{Topic: topic, Event: "set_seat", Payload: json.RawMessage(`{"player_id":"userA","seat":"A1"}`)}
+	seatBody, _ := json.Marshal(seatEnv)
+	res, err := http.Post(server.URL+"/be/socket", "application/json", strings.NewReader(string(seatBody)))
+	if err != nil {
+		t.Fatalf("post set_seat failed: %v", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", res.StatusCode)
+	}
+	_ = drainUntil(t, ctx, c1, "set_seat")
+	seatsChanged := drainUntil(t, ctx, c1, "seats_changed")
+	var seatsResp struct {
+		Seats map[string]string `json:"seats"`
+	}
+	if err := json.Unmarshal(seatsChanged.Payload, &seatsResp); err != nil {
+		t.Fatalf("decode seats_changed payload: %v", err)
+	}
+	if seatsResp.Seats["userA"] != "A1" {
+		t.Fatalf("expected userA seat A1, got %q", seatsResp.Seats["userA"])
+	}
+
+	// set_spectator via offline POST
+	specEnv := PhoenixEnvelope{Topic: topic, Event: "set_spectator", Payload: json.RawMessage(`{"player_id":"userA","spectator":true}`)}
+	specBody, _ := json.Marshal(specEnv)
+	res, err = http.Post(server.URL+"/be/socket", "application/json", strings.NewReader(string(specBody)))
+	if err != nil {
+		t.Fatalf("post set_spectator failed: %v", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", res.StatusCode)
+	}
+	_ = drainUntil(t, ctx, c1, "set_spectator")
+	specChanged := drainUntil(t, ctx, c1, "spectators_changed")
+	var specResp struct {
+		Spectators map[string]bool `json:"spectators"`
+	}
+	if err := json.Unmarshal(specChanged.Payload, &specResp); err != nil {
+		t.Fatalf("decode spectators_changed payload: %v", err)
+	}
+	if !specResp.Spectators["userA"] {
+		t.Fatalf("expected userA in spectators")
+	}
+
+	updated, err := gameSvc.GetGameUI(gameUI.Slug)
+	if err != nil {
+		t.Fatalf("get game ui: %v", err)
+	}
+	if updated.Seats["userA"] != "A1" {
+		t.Fatalf("expected persisted seat userA=A1, got %q", updated.Seats["userA"])
+	}
+	if !updated.Spectators["userA"] {
+		t.Fatalf("expected persisted spectator userA")
 	}
 }
 
@@ -351,8 +447,8 @@ func TestWSHandlerPostOfflineRequestState(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&stateResp); err != nil {
 		t.Fatalf("decode state response: %v", err)
 	}
-	if stateResp.Event != "send_state" {
-		t.Fatalf("expected send_state response, got %s", stateResp.Event)
+	if stateResp.Event != "current_state" {
+		t.Fatalf("expected current_state response, got %s", stateResp.Event)
 	}
 	var payload struct {
 		Actions [][]byte `json:"actions"`
@@ -365,6 +461,55 @@ func TestWSHandlerPostOfflineRequestState(t *testing.T) {
 	}
 	if string(payload.Actions[0]) != `{"actor":"offline","action":"move"}` {
 		t.Fatalf("unexpected state action: %s", string(payload.Actions[0]))
+	}
+}
+
+func TestRoomChannelPhxJoinCurrentState(t *testing.T) {
+	hub := NewHub()
+	rRepo := persistence.NewInMemoryRoomRepository()
+	rSvc := room.NewService(rRepo)
+	gameRegistry := game.NewRoomRegistry()
+	gameSvc := game.NewGameService(rSvc, gameRegistry, nil)
+	gameUI, err := gameSvc.CreateGame(context.Background(), "test", "owner")
+	if err != nil {
+		t.Fatalf("create game: %v", err)
+	}
+	topic := "room:" + gameUI.Slug
+	replaySvc := replay.NewReplayService(persistence.NewInMemoryReplayRepository())
+	handler := NewWSHandler(hub, rSvc, lfg.NewService(persistence.NewInMemoryLfgRepository()), gameSvc, replaySvc)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	token, err := auth.GenerateToken("userA", time.Hour)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/be/socket?token=" + token
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	c1, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial c1: %v", err)
+	}
+	defer c1.Close(websocket.StatusNormalClosure, "")
+
+	join := PhoenixEnvelope{Topic: topic, Event: "phx_join", Payload: json.RawMessage(`{"when":"t1"}`)}
+	if err := wsjson.Write(ctx, c1, join); err != nil {
+		t.Fatalf("c1 join write: %v", err)
+	}
+	_ = drainUntil(t, ctx, c1, "phx_reply")
+
+	state := drainUntil(t, ctx, c1, "current_state")
+	var statePayload struct {
+		Actions [][]byte `json:"actions"`
+	}
+	if err := json.Unmarshal(state.Payload, &statePayload); err != nil {
+		t.Fatalf("decode current_state payload: %v", err)
+	}
+	if len(statePayload.Actions) != 0 {
+		t.Fatalf("expected 0 actions in current_state, got %d", len(statePayload.Actions))
 	}
 }
 

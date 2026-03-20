@@ -58,7 +58,7 @@ compare progress files with implementation. No new features — only evaluation 
 
 ## Outcome
 
-- [x] Review file updated with accurate current implementation state
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20 — all findings still valid)
 - [x] All previously noted TODOs resolved: jwt v5, save_replay, users_changed, seats_changed, spectators_changed, gui_update, bad_game_state — all now implemented
 - [x] channel_registry.go confirmed in use — not dead code
 - [x] Review points tracked with check marks

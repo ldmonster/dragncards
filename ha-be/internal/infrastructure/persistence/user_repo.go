@@ -68,6 +68,40 @@ func (r *InMemoryUserRepository) FindByID(id string) (*identity.User, error) {
 	return u, nil
 }
 
+func (r *InMemoryUserRepository) FindByConfirmToken(token string) (*identity.User, error) {
+	if token == "" {
+		return nil, ErrNoUser
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, u := range r.users {
+		if u.ConfirmToken == token {
+			return u, nil
+		}
+	}
+
+	return nil, ErrNoUser
+}
+
+func (r *InMemoryUserRepository) FindByResetToken(token string) (*identity.User, error) {
+	if token == "" {
+		return nil, ErrNoUser
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, u := range r.users {
+		if u.ResetToken == token {
+			return u, nil
+		}
+	}
+
+	return nil, ErrNoUser
+}
+
 func (r *InMemoryUserRepository) Update(user *identity.User) error {
 	if user == nil || user.ID == "" {
 		return errors.New("invalid user")
@@ -82,6 +116,10 @@ func (r *InMemoryUserRepository) Update(user *identity.User) error {
 		existing.Email = user.Email
 		existing.PasswordHash = user.PasswordHash
 		existing.Confirmed = user.Confirmed
+		existing.ConfirmToken = user.ConfirmToken
+		existing.ConfirmTokenExpiresAt = user.ConfirmTokenExpiresAt
+		existing.ResetToken = user.ResetToken
+		existing.ResetTokenExpiresAt = user.ResetTokenExpiresAt
 	}
 
 	return nil

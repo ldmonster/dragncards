@@ -2,11 +2,14 @@ package game
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	domaingame "github.com/ldmonster/dragncards/ha-be/internal/domain/game"
+	"github.com/ldmonster/dragncards/ha-be/internal/domain/game/evaluate"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/gamestate"
 )
@@ -82,6 +85,12 @@ func (s *GameService) run(ctx context.Context, gameRoom *GameRoom) {
 			}
 			gameRoom.State.AddAction(payload)
 
+			if err := s.applyGameAction(gameRoom, payload); err != nil {
+				s.log.Error("game_service: failed to apply game action",
+					"slug", gameRoom.Slug,
+					"error", err)
+			}
+
 			// Persist action via room service.
 			if err := s.roomService.AppendAction(gameRoom.Slug, payload); err != nil {
 				s.log.Error("game_service: failed to append action",
@@ -101,6 +110,83 @@ func (s *GameService) run(ctx context.Context, gameRoom *GameRoom) {
 	}
 }
 
+func (s *GameService) applyGameAction(gameRoom *GameRoom, payload []byte) error {
+	var env struct {
+		Actor   string          `json:"actor,omitempty"`
+		Action  string          `json:"action,omitempty"`
+		Options json.RawMessage `json:"options,omitempty"`
+	}
+	if err := json.Unmarshal(payload, &env); err != nil {
+		return err
+	}
+
+	switch strings.ToLower(env.Action) {
+	case "set_game":
+		var opts struct {
+			Game *domaingame.GameUI `json:"game"`
+		}
+		if err := json.Unmarshal(env.Options, &opts); err != nil {
+			return err
+		}
+		if opts.Game == nil {
+			return errors.New("set_game option requires game")
+		}
+		gameRoom.State = opts.Game
+		return nil
+
+	case "evaluate":
+		var opts struct {
+			ActionList []json.RawMessage `json:"action_list"`
+		}
+		if err := json.Unmarshal(env.Options, &opts); err != nil {
+			return err
+		}
+		for _, item := range opts.ActionList {
+			if err := s.executeEvaluateItem(gameRoom, item); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	default:
+		// no action semantics for other types yet
+		return nil
+	}
+}
+
+func (s *GameService) executeEvaluateItem(gameRoom *GameRoom, raw json.RawMessage) error {
+	var val any
+	if err := json.Unmarshal(raw, &val); err != nil {
+		return nil
+	}
+
+	// Handle embedded game_action event in action_list items.
+	if m, ok := val.(map[string]any); ok {
+		if t, ok := m["type"].(string); ok && strings.EqualFold(t, "game_action") {
+			nested := struct {
+				Actor   string          `json:"actor,omitempty"`
+				Action  string          `json:"action,omitempty"`
+				Options json.RawMessage `json:"options,omitempty"`
+			}{
+				Actor: "",
+			}
+			if action, ok := m["action"].(string); ok {
+				nested.Action = action
+			}
+			if options, ok := m["options"]; ok {
+				if b, err := json.Marshal(options); err == nil {
+					nested.Options = b
+				}
+			}
+			nestedBytes, _ := json.Marshal(nested)
+			return s.applyGameAction(gameRoom, nestedBytes)
+		}
+	}
+
+	_, err := evaluate.EvaluateExpression(evaluate.NewEvalContext(gameRoom.State), nil, val)
+	return err
+}
+
 // SendAction enqueues a raw action payload into the room's inbox.
 func (s *GameService) SendAction(slug string, payload []byte) error {
 	room := s.registry.Get(slug)
@@ -116,6 +202,36 @@ func (s *GameService) SendAction(slug string, payload []byte) error {
 	case <-time.After(1 * time.Second):
 		return errors.New("timeout sending action")
 	}
+}
+
+func (s *GameService) SetSeat(slug, playerID, seat string) error {
+	room := s.registry.Get(slug)
+	if room == nil {
+		return errors.New("room not found")
+	}
+	room.State.SetSeat(playerID, seat)
+	if s.stateStore != nil {
+		if err := s.stateStore.Save(context.Background(), slug, room.State); err != nil {
+			s.log.Error("game_service: failed to save state after set_seat",
+				"slug", slug, "error", err)
+		}
+	}
+	return nil
+}
+
+func (s *GameService) SetSpectator(slug, playerID string, spectator bool) error {
+	room := s.registry.Get(slug)
+	if room == nil {
+		return errors.New("room not found")
+	}
+	room.State.SetSpectator(playerID, spectator)
+	if s.stateStore != nil {
+		if err := s.stateStore.Save(context.Background(), slug, room.State); err != nil {
+			s.log.Error("game_service: failed to save state after set_spectator",
+				"slug", slug, "error", err)
+		}
+	}
+	return nil
 }
 
 // GetGameUI returns the current in-memory state for a room.
@@ -134,6 +250,8 @@ func (s *GameService) ResetGame(ctx context.Context, slug string) error {
 		return errors.New("room not found")
 	}
 	room.State.ResetActions()
+	room.State.ResetSeats()
+	room.State.ResetSpectators()
 	if s.stateStore != nil {
 		if err := s.stateStore.Save(ctx, slug, room.State); err != nil {
 			s.log.Error("game_service: failed to save state after reset",

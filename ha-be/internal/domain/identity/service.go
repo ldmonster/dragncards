@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,20 +23,16 @@ type tokenEntry struct {
 }
 
 type IdentityService struct {
-	repo          UserRepository
-	confirmTokens map[string]tokenEntry
-	resetTokens   map[string]tokenEntry
-	confirmTTL    time.Duration
-	resetTTL      time.Duration
+	repo       UserRepository
+	confirmTTL time.Duration
+	resetTTL   time.Duration
 }
 
 func NewService(repo UserRepository) *IdentityService {
 	return &IdentityService{
-		repo:          repo,
-		confirmTokens: map[string]tokenEntry{},
-		resetTokens:   map[string]tokenEntry{},
-		confirmTTL:    24 * time.Hour,
-		resetTTL:      1 * time.Hour,
+		repo:       repo,
+		confirmTTL: 24 * time.Hour,
+		resetTTL:   1 * time.Hour,
 	}
 }
 
@@ -81,33 +78,35 @@ func (s *IdentityService) GenerateConfirmToken(email string) (string, error) {
 		s.confirmTTL = 24 * time.Hour
 	}
 	token := fmt.Sprintf("confirm-%d", time.Now().UnixNano())
-	s.confirmTokens[token] = tokenEntry{UserID: user.ID, ExpiresAt: time.Now().Add(s.confirmTTL)}
+	user.ConfirmToken = token
+	user.ConfirmTokenExpiresAt = time.Now().Add(s.confirmTTL)
+	if err := s.repo.Update(user); err != nil {
+		return "", err
+	}
 	return token, nil
 }
 
 func (s *IdentityService) ConfirmEmail(token string) error {
-	entry, ok := s.confirmTokens[token]
-	if !ok {
+	if token == "" {
 		return ErrTokenInvalid
 	}
-	if time.Now().After(entry.ExpiresAt) {
-		delete(s.confirmTokens, token)
+	user, err := s.repo.FindByConfirmToken(token)
+	if err != nil || user == nil {
+		return ErrTokenInvalid
+	}
+	if time.Now().After(user.ConfirmTokenExpiresAt) {
+		user.ConfirmToken = ""
+		user.ConfirmTokenExpiresAt = time.Time{}
+		_ = s.repo.Update(user)
 		return ErrTokenExpired
 	}
-	user, err := s.repo.FindByID(entry.UserID)
-	if err != nil || user == nil {
-		return ErrUserNotFound
-	}
 	if user.Confirmed {
-		delete(s.confirmTokens, token)
 		return nil
 	}
 	user.Confirmed = true
-	if err := s.repo.Update(user); err != nil {
-		return err
-	}
-	delete(s.confirmTokens, token)
-	return nil
+	user.ConfirmToken = ""
+	user.ConfirmTokenExpiresAt = time.Time{}
+	return s.repo.Update(user)
 }
 
 func (s *IdentityService) GenerateResetToken(email string) (string, error) {
@@ -122,22 +121,27 @@ func (s *IdentityService) GenerateResetToken(email string) (string, error) {
 		s.resetTTL = 1 * time.Hour
 	}
 	token := fmt.Sprintf("reset-%d", time.Now().UnixNano())
-	s.resetTokens[token] = tokenEntry{UserID: user.ID, ExpiresAt: time.Now().Add(s.resetTTL)}
+	user.ResetToken = token
+	user.ResetTokenExpiresAt = time.Now().Add(s.resetTTL)
+	if err := s.repo.Update(user); err != nil {
+		return "", err
+	}
 	return token, nil
 }
 
 func (s *IdentityService) ResetPassword(token, newPassword string) error {
-	entry, ok := s.resetTokens[token]
-	if !ok {
+	if token == "" {
 		return ErrTokenInvalid
 	}
-	if time.Now().After(entry.ExpiresAt) {
-		delete(s.resetTokens, token)
-		return ErrTokenExpired
-	}
-	user, err := s.repo.FindByID(entry.UserID)
+	user, err := s.repo.FindByResetToken(token)
 	if err != nil || user == nil {
-		return ErrUserNotFound
+		return ErrTokenInvalid
+	}
+	if time.Now().After(user.ResetTokenExpiresAt) {
+		user.ResetToken = ""
+		user.ResetTokenExpiresAt = time.Time{}
+		_ = s.repo.Update(user)
+		return ErrTokenExpired
 	}
 
 	hash, err := hashPassword(newPassword)
@@ -145,11 +149,9 @@ func (s *IdentityService) ResetPassword(token, newPassword string) error {
 		return err
 	}
 	user.PasswordHash = hash
-	if err := s.repo.Update(user); err != nil {
-		return err
-	}
-	delete(s.resetTokens, token)
-	return nil
+	user.ResetToken = ""
+	user.ResetTokenExpiresAt = time.Time{}
+	return s.repo.Update(user)
 }
 
 func (s *IdentityService) GetUserByID(id string) (*User, error) {
@@ -235,5 +237,5 @@ func ComparePassword(stored, password string) bool {
 }
 
 func randID() string {
-	return fmt.Sprintf("u-%d", time.Now().UnixNano())
+	return "u-" + uuid.NewString()
 }
