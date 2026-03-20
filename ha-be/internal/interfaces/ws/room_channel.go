@@ -8,8 +8,8 @@ import (
 
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
-	replayDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/game/evaluate"
+	replayDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
 )
 
