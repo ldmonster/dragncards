@@ -18,14 +18,21 @@ defmodule DragnCardsWeb.PowMailer do
     |> text_body(text)
   end
 
-  # def process(email) do
-  #   Logger.info("E-mail sent: #{inspect(email)}")
-  # end
-
   def process(email) do
-    email
-    |> deliver()
-    |> log_warnings()
+    case Application.get_env(:dragncards, __MODULE__, [])[:adapter] do
+      nil ->
+        # No mailer adapter configured (e.g. offline mode).
+        # Log the email instead of trying to deliver it so registration and
+        # password-reset requests still succeed without a real mail server.
+        Logger.info("[Mailer] No adapter configured – skipping delivery. " <>
+          "Recipient: #{inspect(email.to)}, Subject: #{inspect(email.subject)}")
+        {:ok, email}
+
+      _adapter ->
+        email
+        |> deliver()
+        |> log_warnings()
+    end
   end
 
   defp log_warnings({:error, reason}) do

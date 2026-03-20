@@ -1,8 +1,11 @@
 defmodule DragnCardsWeb.API.V1.RegistrationController do
   use DragnCardsWeb, :controller
 
+  import Ecto.Query
   alias Ecto.Changeset
   alias Plug.Conn
+  alias DragnCards.Repo
+  alias DragnCards.Users.User
 
   @spec create(Conn.t(), map()) :: Conn.t()
   def create(conn, %{"user" => user_params}) do
@@ -10,7 +13,9 @@ defmodule DragnCardsWeb.API.V1.RegistrationController do
     |> Pow.Plug.create_user(user_params)
     |> case do
       {:ok, user, conn} ->
-        send_confirmation_email(user, conn)
+        confirm_time = DateTime.utc_now()
+        from(u in User, where: u.id == ^user.id, update: [set: [email_confirmed_at: ^confirm_time]])
+        |> Repo.update_all([])
 
         json(conn, %{
           data: %{

@@ -1,4 +1,4 @@
-import React, { useEffect, ReactNode } from "react";
+import React, { useEffect, useRef, ReactNode } from "react";
 import { Socket } from "phoenix";
 
 import SocketContext from "../contexts/SocketContext";
@@ -12,13 +12,27 @@ const SocketProvider = ({
   options: object | (() => object);
   children: ReactNode;
 }) => {
-  const socket = new Socket(wsUrl, { params: options });
+  // Keep a mutable ref so the params function always returns the latest options
+  // without recreating the Socket or reconnecting the WebSocket.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  // Create the Socket exactly once. Using a function ref means reconnections
+  // (e.g. after a network drop) will automatically pick up the latest params.
+  const socketRef = useRef<Socket | null>(null);
+  if (socketRef.current === null) {
+    socketRef.current = new Socket(wsUrl, { params: () => optionsRef.current });
+  }
+
   useEffect(() => {
-    socket.connect();
-  }, [options, socket, wsUrl]);
+    socketRef.current!.connect();
+    return () => {
+      socketRef.current!.disconnect();
+    };
+  }, []); // connect once on mount, disconnect on unmount
 
   return (
-    <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
+    <SocketContext.Provider value={socketRef.current}>{children}</SocketContext.Provider>
   );
 };
 

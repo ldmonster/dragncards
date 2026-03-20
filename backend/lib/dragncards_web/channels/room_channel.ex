@@ -26,15 +26,14 @@ defmodule DragnCardsWeb.RoomChannel do
     GameUIServer.add_player_to_room(room_slug, user_id, pid)
     state = GameUIServer.state(room_slug)
     client_state = client_state(socket)
-    if client_state == nil do
-      push(socket, "unable_to_get_state_on_join", %{})
-    end
 
-    if state["sockets"] != nil do
-      broadcast!(socket, "users_changed", state["sockets"])
-    end
-    if client_state != nil do
-      push(socket, "current_state", client_state(socket))
+    if !is_map(state) or !is_map(client_state) do
+      push(socket, "unable_to_get_state_on_join", %{})
+    else
+      if is_map(state) and state["sockets"] != nil do
+        broadcast!(socket, "users_changed", state["sockets"])
+      end
+      push(socket, "current_state", client_state)
     end
 
     {:noreply, socket}
@@ -72,30 +71,42 @@ defmodule DragnCardsWeb.RoomChannel do
       ) do
     old_state = GameUIServer.state(room_slug)
     old_replay_step = old_state["replayStep"]
-    GameUIServer.game_action(room_slug, user_id, action, options)
 
-    new_state = GameUIServer.state(room_slug)
+    try do
+      GameUIServer.game_action(room_slug, user_id, action, options)
 
-    # Process any pending GUI updates
-    pending_gui_updates = get_in(new_state, ["game", "pendingGuiUpdates"])
-    if is_list(pending_gui_updates) and length(pending_gui_updates) > 0 do
-      Enum.each(pending_gui_updates, fn gui_update ->
-        send_gui_message_to_player(socket, gui_update)
-      end)
+      new_state = GameUIServer.state(room_slug)
+
+      # Process any pending GUI updates
+      pending_gui_updates = get_in(new_state, ["game", "pendingGuiUpdates"])
+      if is_list(pending_gui_updates) and length(pending_gui_updates) > 0 do
+        Enum.each(pending_gui_updates, fn gui_update ->
+          send_gui_message_to_player(socket, gui_update)
+        end)
+      end
+
+      # If round changed, save replay asynchronously (only when the user is authenticated)
+      if get_in(new_state, ["game", "roundNumber"]) != get_in(old_state, ["game", "roundNumber"]) and user_id != nil do
+        IO.puts("Round changed, saving replay asynchronously, user_id: #{user_id}")
+
+        Task.start(fn ->
+          save_replay(socket, room_slug, user_id, options)
+        end)
+      end
+
+      notify_update(socket, room_slug, user_id, old_state, options["description"])
+
+      {:reply, {:ok, "game_action"}, socket}
+    rescue
+      e ->
+        error_message = Exception.message(e)
+        Logger.error("game_action failed for room #{room_slug} by user #{user_id}: #{error_message}\n#{Exception.format_stacktrace(__STACKTRACE__)}")
+        notify_alert(socket, room_slug, user_id, %{
+          "level" => "error",
+          "text" => "Action failed: #{error_message}"
+        })
+        {:reply, {:error, %{reason: error_message}}, socket}
     end
-
-    # If round changed, save replay asynchronously
-    if get_in(new_state, ["game", "roundNumber"]) != get_in(old_state, ["game", "roundNumber"]) do
-      IO.puts("Round changed, saving replay asynchronously, user_id: #{user_id}")
-
-      Task.start(fn ->
-        save_replay(socket, room_slug, user_id, options)
-      end)
-    end
-
-    notify_update(socket, room_slug, user_id, old_state, options["description"])
-
-    {:reply, {:ok, "game_action"}, socket}
   end
 
 
@@ -107,8 +118,9 @@ defmodule DragnCardsWeb.RoomChannel do
     },
     %{assigns: %{room_slug: room_slug, user_id: user_id}} = socket
   ) do
-    IO.puts("Save replay, user_id: #{user_id}")
-    save_replay(socket, room_slug, user_id, options)
+    effective_user_id = resolve_user_id(user_id, room_slug)
+    IO.puts("Save replay, user_id: #{effective_user_id}")
+    save_replay(socket, room_slug, effective_user_id, options)
     {:reply, {:ok, "save_replay"}, socket}
   end
 
@@ -236,9 +248,10 @@ defmodule DragnCardsWeb.RoomChannel do
     %{assigns: %{room_slug: room_slug, user_id: user_id}} = socket
   ) do
     gameui = GameUIServer.state(room_slug)
+    effective_user_id = resolve_user_id(user_id, room_slug)
     if options["save"] == true or options["save"] == nil do
       try do
-        GameUI.save_replay(gameui, user_id, options)
+        GameUI.save_replay(gameui, effective_user_id, options)
       rescue
         e ->
           Logger.error("Failed to save replay in reset_game for room #{room_slug}: #{inspect(e)}")
@@ -305,8 +318,9 @@ defmodule DragnCardsWeb.RoomChannel do
     %{assigns: %{room_slug: room_slug, user_id: user_id}} = socket
   ) do
     gameui = GameUIServer.state(room_slug)
+    effective_user_id = resolve_user_id(user_id, room_slug)
     try do
-      GameUI.save_replay(gameui, user_id, options)
+      GameUI.save_replay(gameui, effective_user_id, options)
     rescue
       e ->
         Logger.error("Failed to save replay in close_room for room #{room_slug}: #{inspect(e)}")
@@ -345,6 +359,14 @@ defmodule DragnCardsWeb.RoomChannel do
       broadcast!(socket, "users_changed", state["sockets"])
     end
   end
+
+  # When the socket connected before the auth token was available the assigned
+  # user_id can be nil.  Fall back to the room creator so saves still work.
+  defp resolve_user_id(nil, room_slug) do
+    gameui = GameUIServer.state(room_slug)
+    gameui && gameui["createdBy"]
+  end
+  defp resolve_user_id(user_id, _room_slug), do: user_id
 
   defp save_replay(socket, room_slug, user_id, options) do
     new_state = GameUIServer.state(room_slug)

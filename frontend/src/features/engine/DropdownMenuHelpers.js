@@ -19,6 +19,7 @@ export const GoBack = (props) => {
 
 export const DropdownItem = (props) => {
   const handleDropDownItemClick = (event) => {
+    event.preventDefault();
     event.stopPropagation();
     props.clickCallback(props);
   }

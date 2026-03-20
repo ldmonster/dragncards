@@ -21,7 +21,10 @@ const isStringMatch = (searchStr, target) => {
 export const SpawnPublicDeckModal = React.memo(({}) => {
     const dispatch = useDispatch();
 
-    dispatch(setTyping(true));
+    useEffect(() => {
+      dispatch(setTyping(true));
+      return () => dispatch(setTyping(false));
+    }, []);
 
     return(
       <ReactModal

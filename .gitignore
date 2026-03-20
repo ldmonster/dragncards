@@ -8,9 +8,10 @@ backend/config/releases.exs
 backend/config/prod.secret.exs
 backend/MnesiaCore*
 frontend/src/cardDB/ALeP*
+images/
+build/
 
 .plan
-Dockerfile
 R3F_MIGRATION_PLAN.md
 R3F_PROTOTYPE_SUMMARY.md
 backend/.tool-versions
@@ -25,6 +26,7 @@ backend/test/dragncards_game/ui/game_ui_supervisor_terminate_test.exs
 backend/test/dragncards_game/wotr_plugin_test.exs
 docker-compose copy.yml
 entrypoint.sh
+!frontend/nginx/entrypoint.sh
 frontend/.env
 frontend/PROTOTYPE_INSTALLATION.md
 frontend/babel.config.js

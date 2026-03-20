@@ -11,11 +11,10 @@ async function axiosRetry(
 ): Promise<AxiosResponse> {
   try {
     console.log("pluginTrace axiosRetry try 1", url)
-    const an_axios = axios.create({
-      //timeout: delay, 
-      onDownloadProgress: progressEvent => {console.log("progressEvent", progressEvent); setProgressEvent(progressEvent)}
+    const result = await axios(url, {
+      ...options,
+      onDownloadProgress: progressEvent => {console.log("progressEvent", progressEvent); setProgressEvent(progressEvent)},
     });
-    const result = await an_axios(url, options);
 
     console.log("pluginTrace axiosRetry try 2", url, result)
     

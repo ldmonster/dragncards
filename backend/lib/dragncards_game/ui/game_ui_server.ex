@@ -242,8 +242,15 @@ defmodule DragnCardsGame.GameUIServer do
             put_in(gameui, ["game", "messages"], gameui["game"]["messages"] ++ ["Error: " <> inspect(stack_trace)])
         end
       _ ->
-        gameui = GameUI.game_action(gameui, user_id, action, options)
-        put_in(gameui["error"], false)
+        try do
+          gameui = GameUI.game_action(gameui, user_id, action, options)
+          put_in(gameui["error"], false)
+        rescue
+          exception ->
+            stack_trace = __STACKTRACE__
+            Logger.error("in #{gameui["game"]["pluginName"]}\naction: #{action}\noptions: #{inspect options}\nexception: #{inspect exception}\nstack trace: #{inspect stack_trace}")
+            put_in(gameui, ["game", "messages"], gameui["game"]["messages"] ++ ["Error: " <> inspect(stack_trace)])
+        end
     end
 
     gameui

@@ -13,9 +13,21 @@ import useHtmlClass from "../hooks/useHtmlClass";
 import { BrowserRouter as Router } from "react-router-dom";
 
 const App: React.FC = () => {
-  const [tokens, setTokens] = useState({
-    authToken: null,
-    renewToken: null,
+  // Load persisted tokens synchronously during the first render so the
+  // WebSocket always connects with the correct authToken.  Previously this
+  // was done in a useEffect which ran *after* SocketProvider's useEffect,
+  // meaning the socket connected with a null token every page load.
+  const [tokens, setTokens] = useState(() => {
+    try {
+      const at_raw = localStorage.getItem("authToken");
+      const rt_raw = localStorage.getItem("renewToken");
+      if (typeof at_raw === "string" && typeof rt_raw === "string") {
+        const at = JSON.parse(at_raw);
+        const rt = JSON.parse(rt_raw);
+        if (at && rt) return { authToken: at, renewToken: rt };
+      }
+    } catch (_) {}
+    return { authToken: null, renewToken: null };
   });
 
   const setAuthAndRenewToken = useCallback(
@@ -56,21 +68,6 @@ const App: React.FC = () => {
     }),
     [logOut, setAuthAndRenewToken, tokens.authToken, tokens.renewToken]
   );
-
-  useEffect(() => {
-    const at_raw = localStorage.getItem("authToken");
-    const rt_raw = localStorage.getItem("renewToken");
-    if (typeof at_raw == "string" && typeof rt_raw == "string") {
-      const at = JSON.parse(at_raw);
-      const rt = JSON.parse(rt_raw);
-      if (at && rt) {
-        setTokens({
-          authToken: at,
-          renewToken: rt,
-        });
-      }
-    }
-  }, []);
 
   const socketParams = useMemo(
     () => ({

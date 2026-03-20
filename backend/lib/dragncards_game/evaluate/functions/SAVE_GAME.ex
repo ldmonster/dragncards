@@ -39,8 +39,9 @@ defmodule DragnCardsGame.Evaluate.Functions.SAVE_GAME do
       user_id = game["playerData"][player_n]["user_id"]
 
       if user_id == nil do
-        raise "SAVE_GAME failed: user_id is nil for player #{player_n}"
-      end
+        Logger.warn("SAVE_GAME: user_id is nil for player #{player_n} — skipping save (offline or unauthenticated user)")
+        game  # return game unchanged
+      else
 
       # Save the game to database (no deltas, just current state)
       result = try do
@@ -60,6 +61,7 @@ defmodule DragnCardsGame.Evaluate.Functions.SAVE_GAME do
 
       # Return the game unchanged
       game
+      end  # end of user_id != nil branch
     rescue
       e ->
         # Re-raise with additional context if this is not already a wrapped error

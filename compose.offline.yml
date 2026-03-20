@@ -1,0 +1,54 @@
+# Compose file for fully offline operation.
+# Images are pre-built and saved with `make build`, then loaded with `make install`.
+# All application deps / source are baked into the images – no live volume mounts.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Service name must match what frontend/nginx/nginx.conf proxies to
+  backend:
+    image: dragncards/backend:latest
+    depends_on:
+      - postgres
+    ports:
+      - "4000:4000"
+    entrypoint: /app/scripts/offline-start.sh
+    environment:
+      - DB_HOSTNAME=postgres
+      - CHECK_ORIGIN=false
+    restart: unless-stopped
+
+  frontend:
+    image: dragncards/frontend:latest
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    # To serve the frontend at a sub-path (e.g. example.com/dragncards),
+    # just set NGINX_BASE_PATH – no image rebuild required:
+    # environment:
+    #   - NGINX_BASE_PATH=/dragncards
+    restart: unless-stopped
+
+  # Static image server (card art, etc.)
+  nginx:
+    image: nginx:latest
+    container_name: my-nginx-app
+    ports:
+      - "8080:80"
+    volumes:
+      - ./images:/usr/share/nginx/html
+    restart: unless-stopped
+
+volumes:
+  pgdata:

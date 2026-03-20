@@ -45,11 +45,18 @@ defmodule DragnCardsWeb.UserSocket do
   end
 
   defp get_user_from_auth_token(token) do
-    ## Warning: Hardcoded Config for Plug
-    ## I don't know how to get this, because I need
-    ## "conn" which doesn't exist in this context
-    config = [mod: DragnCardsWeb.APIAuthPlug, plug: DragnCardsWeb.APIAuthPlug, otp_app: :dragncards]
-    ## This APIAuthPlug probably shouldn't be hardcoded
+    # Read the cache_store_backend from the application config so we use the
+    # same backend (e.g. MnesiaCache) that was used when the session was created
+    # via HTTP.  Previously this was omitted, causing the socket to look in the
+    # default EtsCache while the token was stored in MnesiaCache → user_id nil.
+    pow_config = Application.get_env(:dragncards, :pow, [])
+    cache_backend = Keyword.get(pow_config, :cache_store_backend, Pow.Store.Backend.EtsCache)
+    config = [
+      mod: DragnCardsWeb.APIAuthPlug,
+      plug: DragnCardsWeb.APIAuthPlug,
+      otp_app: :dragncards,
+      cache_store_backend: cache_backend
+    ]
     DragnCardsWeb.APIAuthPlug.fetch_from_token(config, token)
   end
 
