@@ -23,12 +23,14 @@ import (
 	replayDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/email"
+	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/gamestate"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/persistence"
 	httpapi "github.com/ldmonster/dragncards/ha-be/internal/interfaces/http"
 	wsapi "github.com/ldmonster/dragncards/ha-be/internal/interfaces/ws"
 	"github.com/ldmonster/dragncards/ha-be/internal/platform/auth"
 	"github.com/ldmonster/dragncards/ha-be/internal/platform/database"
 	"github.com/ldmonster/dragncards/ha-be/internal/platform/logger"
+	platformredis "github.com/ldmonster/dragncards/ha-be/internal/platform/redis"
 )
 
 func main() {
@@ -88,7 +90,31 @@ func main() {
 	lfgSvc := lfg.NewService(lfgRepo)
 	alertSvc := alert.NewService(alertRepo)
 	gameRegistry := game.NewRoomRegistry()
-	gameSvc := game.NewGameService(roomSvc, gameRegistry, nil)
+
+	// Select game state store: Redis when url configured, Postgres otherwise, nil = in-memory only.
+	var stateStore gamestate.GameStateStore
+	if cfg.Redis.URL != "" {
+		redisClient, redisErr := platformredis.New(context.Background(), cfg.Redis.URL)
+		if redisErr != nil {
+			logr.Error("redis init failed, falling back to postgres game state", "error", redisErr)
+		} else {
+			stateStore = gamestate.NewRedisGameStateStore(redisClient)
+			logr.Info("game state store: Redis")
+		}
+	}
+	if stateStore == nil && db != nil {
+		pgStore := gamestate.NewPostgresGameStateStore(db)
+		if err := pgStore.AutoMigrate(); err != nil {
+			logr.Error("game_states migrate failed", "error", err)
+		}
+		stateStore = pgStore
+		logr.Info("game state store: Postgres")
+	}
+	if stateStore == nil {
+		logr.Info("game state store: in-memory only (no Redis URL, no DB)")
+	}
+
+	gameSvc := game.NewGameService(roomSvc, gameRegistry, stateStore)
 
 	if cfg.Auth.JWTSecret != "" {
 		auth.SetSecret(cfg.Auth.JWTSecret)
