@@ -1,0 +1,11 @@
+server:
+  port: 9000
+
+database:
+  url: "postgres://localhost:5432/dragncards?sslmode=disable"
+
+log:
+  level: "info"
+
+redis:
+  url: ""

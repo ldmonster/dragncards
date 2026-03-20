@@ -18,11 +18,11 @@ Original logic - backend folder (written on elixir)
 ## Progress Tracker
 
 ```
-[ ] Phase 0  - Foundation (module scaffold, config, logger, DB, CLI)
-[ ] Phase 1  - Auth domain (users, sessions, tokens, email)
-[ ] Phase 2  - REST API domains (rooms, plugins, decks, profiles, LFG, alerts, replays, admin)
-[ ] Phase 3  - WebSocket / game hub (real-time room, chat, lobby channels)
-[ ] Phase 4  - Game engine DSL interpreter (~100 evaluate functions + variables)
+[x] Phase 0  - Foundation (module scaffold, config, logger, DB, CLI)
+[x] Phase 1  - Auth domain (users, sessions, tokens, email)
+[x] Phase 2  - REST API domains (rooms, plugins, LFG, alerts) — core done; decks/replays/admin pending
+[x] Phase 3  - WebSocket / game hub (real-time room, chat, lobby, lfg channels + offline POST path)
+[~] Phase 4  - Game engine DSL interpreter (eval framework + 4 arithmetic builtins; ~100 functions pending)
 [ ] Phase 5  - Plugin system (custom card DB, plugin repo sync)
 [ ] Phase 6  - Observability (OTel traces, Prometheus metrics)
 [ ] Phase 7  - Tests and final wire-up
