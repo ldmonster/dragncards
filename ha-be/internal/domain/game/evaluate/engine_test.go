@@ -156,7 +156,7 @@ func TestEvaluateExpressionMapFilter(t *testing.T) {
 		t.Fatalf("sort result wrong: %v", res)
 	}
 
-	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"group_by", []any{"list", map[string]any{"a":1}, map[string]any{"a":2}, map[string]any{"a":1}}, "a"})
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{"group_by", []any{"list", map[string]any{"a": 1}, map[string]any{"a": 2}, map[string]any{"a": 1}}, "a"})
 	if err != nil {
 		t.Fatalf("group_by failed: %v", err)
 	}
@@ -220,7 +220,6 @@ func TestEvaluateExpressionMapFilter(t *testing.T) {
 		t.Fatalf("shuffle result wrong: %v", res)
 	}
 }
-
 
 func TestEvaluateExpressionDSLHelpers(t *testing.T) {
 	ctx := evaluate.NewEvalContext(game.NewGameUI("room-1"))
