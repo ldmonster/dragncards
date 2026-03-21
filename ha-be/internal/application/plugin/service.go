@@ -29,8 +29,8 @@ func (s *Service) FindByID(id string) (*plugin.Plugin, error) {
 	return s.domain.FindByID(id)
 }
 
-func (s *Service) CreateCustomCard(pluginID, name, data string) (*plugin.CustomCard, error) {
-	return s.domain.CreateCustomCard(pluginID, name, data)
+func (s *Service) CreateCustomCard(pluginID, ownerID, name, data string) (*plugin.CustomCard, error) {
+	return s.domain.CreateCustomCard(pluginID, ownerID, name, data)
 }
 
 func (s *Service) ListCustomCards(pluginID string) ([]*plugin.CustomCard, error) {
@@ -39,6 +39,14 @@ func (s *Service) ListCustomCards(pluginID string) ([]*plugin.CustomCard, error)
 
 func (s *Service) FindCustomCardByID(cardID string) (*plugin.CustomCard, error) {
 	return s.domain.FindCustomCardByID(cardID)
+}
+
+func (s *Service) ListCustomCardsByOwner(ownerID, pluginID string) ([]*plugin.CustomCard, error) {
+	return s.domain.ListCustomCardsByOwner(ownerID, pluginID)
+}
+
+func (s *Service) DeleteCustomCard(cardID string) error {
+	return s.domain.DeleteCustomCard(cardID)
 }
 
 func (s *Service) SyncRepository(repoURL string) ([]*plugin.Plugin, error) {

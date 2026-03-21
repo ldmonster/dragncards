@@ -18,7 +18,7 @@ func TestPluginServiceCustomCards(t *testing.T) {
 		t.Fatalf("Create plugin failed: %v", err)
 	}
 
-	card, err := service.CreateCustomCard(plug.ID, "TestCard", `{"title":"X"}`)
+	card, err := service.CreateCustomCard(plug.ID, "u-1", "TestCard", `{"title":"X"}`)
 	if err != nil {
 		t.Fatalf("CreateCustomCard failed: %v", err)
 	}
@@ -35,6 +35,26 @@ func TestPluginServiceCustomCards(t *testing.T) {
 	}
 	if cards[0].Data != `{"title":"X"}` {
 		t.Fatalf("unexpected card data: %s", cards[0].Data)
+	}
+
+	// verify list by owner
+	ownerCards, err := service.ListCustomCardsByOwner("u-1", plug.ID)
+	if err != nil {
+		t.Fatalf("ListCustomCardsByOwner failed: %v", err)
+	}
+	if len(ownerCards) != 1 {
+		t.Fatalf("expected 1 owner card, got %d", len(ownerCards))
+	}
+	// delete custom card
+	if err := service.DeleteCustomCard(card.ID); err != nil {
+		t.Fatalf("DeleteCustomCard failed: %v", err)
+	}
+	cardsAfterDelete, err := service.ListCustomCards(plug.ID)
+	if err != nil {
+		t.Fatalf("ListCustomCards failed: %v", err)
+	}
+	if len(cardsAfterDelete) != 0 {
+		t.Fatalf("expected 0 cards after delete, got %d", len(cardsAfterDelete))
 	}
 }
 

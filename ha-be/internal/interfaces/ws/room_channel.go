@@ -77,7 +77,11 @@ func HandleRoomChannel(h *Hub, svc *room.RoomService, gameSvc *game.GameService,
 			actionErr = svc.AppendAction(roomSlug, env.Payload)
 		}
 		if actionErr != nil {
-			badStatePayload, _ := json.Marshal(map[string]string{"error": actionErr.Error()})
+			errText := actionErr.Error()
+			if errText == "room not found" {
+				errText = "room not found. create game first via POST /be/api/v1/games and join via phx_join"
+			}
+			badStatePayload, _ := json.Marshal(map[string]string{"error": errText})
 			eventName := "bad_game_state"
 			var evalErr *evaluate.EvalError
 			if errors.As(actionErr, &evalErr) {

@@ -10,7 +10,9 @@ type PluginRepository interface {
 	CreateCustomCard(card *CustomCard) error
 	UpsertCustomCard(card *CustomCard) error
 	ListCustomCards(pluginID string) ([]*CustomCard, error)
+	ListCustomCardsByOwner(ownerID, pluginID string) ([]*CustomCard, error)
 	FindCustomCardByID(id string) (*CustomCard, error)
+	DeleteCustomCard(id string) error
 
 	CreatePermission(permission *UserPluginPermission) error
 	GetPermission(pluginID, userID string) (*UserPluginPermission, error)

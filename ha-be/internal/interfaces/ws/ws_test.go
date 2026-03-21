@@ -55,7 +55,7 @@ func TestRoomChannelGameActionBroadcast(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create plugin: %v", err)
 	}
-	_, err = pluginSvc.CreateCustomCard(pluginObj.ID, "card-1", "{\"foo\":\"bar\"}")
+	_, err = pluginSvc.CreateCustomCard(pluginObj.ID, "u-1", "card-1", "{\"foo\":\"bar\"}")
 	if err != nil {
 		t.Fatalf("create custom card: %v", err)
 	}
@@ -475,6 +475,203 @@ func TestWSHandlerPostOfflineRequestState(t *testing.T) {
 	}
 	if string(payload.Actions[0]) != `{"actor":"offline","action":"move"}` {
 		t.Fatalf("unexpected state action: %s", string(payload.Actions[0]))
+	}
+}
+
+func TestWSHandlerPostOfflineGameActionRoomNotFound(t *testing.T) {
+	hub := NewHub()
+	rRepo := persistence.NewInMemoryRoomRepository()
+	rSvc := room.NewService(rRepo)
+	lSvc := lfg.NewService(persistence.NewInMemoryLfgRepository())
+	replaySvc := replay.NewReplayService(persistence.NewInMemoryReplayRepository())
+	handler := NewWSHandler(hub, rSvc, lSvc, nil, replaySvc)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	env := PhoenixEnvelope{Topic: "room:missing-room", Event: "game_action", Payload: json.RawMessage(`{"actor":"offline","action":"move"}`)}
+	body, _ := json.Marshal(env)
+	res, err := http.Post(server.URL+"/be/socket", "application/json", strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatalf("post game_action failed: %v", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", res.StatusCode)
+	}
+	var badResp PhoenixEnvelope
+	if err := json.NewDecoder(res.Body).Decode(&badResp); err != nil {
+		t.Fatalf("decode bad state response: %v", err)
+	}
+	if badResp.Event != "bad_game_state" {
+		t.Fatalf("expected bad_game_state event, got %s", badResp.Event)
+	}
+	var payload map[string]string
+	if err := json.Unmarshal(badResp.Payload, &payload); err != nil {
+		t.Fatalf("decode bad_game_state payload: %v", err)
+	}
+	if payload["error"] == "" {
+		t.Fatalf("expected error message in payload")
+	}
+	if !strings.Contains(payload["error"], "create game first") {
+		t.Fatalf("expected room not found guidance message, got %q", payload["error"])
+	}
+}
+
+func TestWSHandlerPostOfflineChannelShortcuts(t *testing.T) {
+	hub := NewHub()
+	rSvc := room.NewService(persistence.NewInMemoryRoomRepository())
+	lfgSvc := lfg.NewService(persistence.NewInMemoryLfgRepository())
+	replaySvc := replay.NewReplayService(persistence.NewInMemoryReplayRepository())
+	handler := NewWSHandler(hub, rSvc, lfgSvc, nil, replaySvc)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	post := func(env PhoenixEnvelope) (*http.Response, error) {
+		b, _ := json.Marshal(env)
+		return http.Post(server.URL+"/be/socket", "application/json", strings.NewReader(string(b)))
+	}
+
+	// chat
+	resp, err := post(PhoenixEnvelope{Topic: "chat:room", Event: "phx_join", Payload: json.RawMessage(`{"when":"t"}`)})
+	if err != nil {
+		t.Fatalf("chat join failed: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("chat join expected 200 got %d", resp.StatusCode)
+	}
+	resp, err = post(PhoenixEnvelope{Topic: "chat:room", Event: "new_msg", Payload: json.RawMessage(`{"user_id":"userA","text":"hi"}`)})
+	if err != nil {
+		t.Fatalf("chat new_msg failed: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("chat new_msg expected 200 got %d", resp.StatusCode)
+	}
+
+	// lobby
+	resp, err = post(PhoenixEnvelope{Topic: "lobby:lobby", Event: "phx_join", Payload: json.RawMessage(`{"when":"t"}`)})
+	if err != nil {
+		t.Fatalf("lobby join failed: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("lobby join expected 200 got %d", resp.StatusCode)
+	}
+	resp, err = post(PhoenixEnvelope{Topic: "lobby:lobby", Event: "lobby_update", Payload: json.RawMessage(`{"state":"new"}`)})
+	if err != nil {
+		t.Fatalf("lobby update failed: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("lobby update expected 200 got %d", resp.StatusCode)
+	}
+
+	// lfg
+	resp, err = post(PhoenixEnvelope{Topic: "lfg:plugin123", Event: "phx_join", Payload: json.RawMessage(`{"when":"t"}`)})
+	if err != nil {
+		t.Fatalf("lfg join failed: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("lfg join expected 200 got %d", resp.StatusCode)
+	}
+	resp, err = post(PhoenixEnvelope{Topic: "lfg:plugin123", Event: "new_post", Payload: json.RawMessage(`{"plugin_id":"plugin123","user_id":"userA","text":"hi"}`)})
+	if err != nil {
+		t.Fatalf("new_post failed: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("new_post expected 200 got %d", resp.StatusCode)
+	}
+	posts, err := lfgSvc.List("plugin123")
+	if err != nil {
+		t.Fatalf("lfg list failed: %v", err)
+	}
+	if len(posts) != 1 || posts[0].Text != "hi" {
+		t.Fatalf("lfg post not persisted, got %#v", posts)
+	}
+
+	// my_topic
+	resp, err = post(PhoenixEnvelope{Topic: "my_topic:userA", Event: "phx_join", Payload: json.RawMessage(`{"when":"t"}`)})
+	if err != nil {
+		t.Fatalf("my_topic join failed: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("my_topic join expected 200 got %d", resp.StatusCode)
+	}
+	resp, err = post(PhoenixEnvelope{Topic: "my_topic:userA", Event: "new_message", Payload: json.RawMessage(`{"text":"hi"}`)})
+	if err != nil {
+		t.Fatalf("my_topic new_message failed: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("my_topic new_message expected 200 got %d", resp.StatusCode)
+	}
+}
+
+func TestWSHandlerOfflineReconnectPhxJoinLeave(t *testing.T) {
+	hub := NewHub()
+	rSvc := room.NewService(persistence.NewInMemoryRoomRepository())
+	lfgSvc := lfg.NewService(persistence.NewInMemoryLfgRepository())
+	replaySvc := replay.NewReplayService(persistence.NewInMemoryReplayRepository())
+	handler := NewWSHandler(hub, rSvc, lfgSvc, nil, replaySvc)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	id := "offline-client-1"
+	topic := "chat:room"
+	joinEnv := PhoenixEnvelope{Topic: topic, Event: "phx_join", Payload: json.RawMessage(`{"when":"t"}`)}
+	body, _ := json.Marshal(joinEnv)
+	req, _ := http.NewRequest(http.MethodPost, server.URL+"/be/socket", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Client-ID", id)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("join failed: %v", err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("join expected 200 got %d", res.StatusCode)
+	}
+
+	topicUsers := hub.TopicSubscribers(topic)
+	if len(topicUsers) != 1 || topicUsers[0] != id {
+		t.Fatalf("expected subscriber %q, got %v", id, topicUsers)
+	}
+
+	leaveEnv := PhoenixEnvelope{Topic: topic, Event: "phx_leave", Payload: json.RawMessage(`{"when":"t"}`)}
+	body, _ = json.Marshal(leaveEnv)
+	res, err = http.Post(server.URL+"/be/socket", "application/json", strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatalf("leave failed: %v", err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("leave expected 200 got %d", res.StatusCode)
+	}
+
+	topicUsers = hub.TopicSubscribers(topic)
+	if len(topicUsers) != 0 {
+		t.Fatalf("expected no subscribers after leave, got %v", topicUsers)
+	}
+
+	// rejoin with same client ID should work
+	req, _ = http.NewRequest(http.MethodPost, server.URL+"/be/socket", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Client-ID", id)
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("rejoin failed: %v", err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("rejoin expected 200 got %d", res.StatusCode)
+	}
+	topicUsers = hub.TopicSubscribers(topic)
+	if len(topicUsers) != 1 || topicUsers[0] != id {
+		t.Fatalf("expected subscriber %q after rejoin, got %v", id, topicUsers)
 	}
 }
 

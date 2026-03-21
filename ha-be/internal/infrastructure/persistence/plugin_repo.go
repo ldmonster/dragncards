@@ -111,6 +111,23 @@ func (r *InMemoryPluginRepository) ListCustomCards(pluginID string) ([]*plugin.C
 	return result, nil
 }
 
+func (r *InMemoryPluginRepository) ListCustomCardsByOwner(ownerID, pluginID string) ([]*plugin.CustomCard, error) {
+	if ownerID == "" || pluginID == "" {
+		return nil, errors.New("owner_id and plugin_id required")
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]*plugin.CustomCard, 0)
+	for _, c := range r.customCards {
+		if c.PluginID == pluginID && c.OwnerID == ownerID {
+			result = append(result, c)
+		}
+	}
+	return result, nil
+}
+
 func (r *InMemoryPluginRepository) FindCustomCardByID(id string) (*plugin.CustomCard, error) {
 	if id == "" {
 		return nil, errors.New("custom card not found")
@@ -184,6 +201,21 @@ func (r *InMemoryPluginRepository) Update(p *plugin.Plugin) error {
 		return errors.New("plugin not found")
 	}
 	r.plugins[p.ID] = p
+	return nil
+}
+
+func (r *InMemoryPluginRepository) DeleteCustomCard(id string) error {
+	if id == "" {
+		return errors.New("custom card id required")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.customCards[id]; !ok {
+		return errors.New("custom card not found")
+	}
+	delete(r.customCards, id)
 	return nil
 }
 

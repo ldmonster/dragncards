@@ -989,6 +989,16 @@ func TestAdminAndPluginPermissionEndpoints(t *testing.T) {
 		t.Fatal("auth token missing")
 	}
 
+	// make user admin for admin routes
+	user, err := userRepo.FindByEmail("admin@x.com")
+	if err != nil {
+		t.Fatalf("find user failed: %v", err)
+	}
+	user.IsAdmin = true
+	if err := userRepo.Update(user); err != nil {
+		t.Fatalf("set admin failed: %v", err)
+	}
+
 	// plugin permission check
 	req = httptest.NewRequest(http.MethodGet, "/be/api/v1/users/plugin_permission/plugin123/user123", nil)
 	req.Header.Set("Authorization", "Bearer "+out["auth_token"])
@@ -996,6 +1006,83 @@ func TestAdminAndPluginPermissionEndpoints(t *testing.T) {
 	mux.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+
+	// custom content create/list/delete
+	// create plugin first
+	createdPlugin, err := pluginSvc.Create("custom-plugin", true)
+	if err != nil {
+		t.Fatalf("create plugin failed: %v", err)
+	}
+	contentBody := fmt.Sprintf(`{"plugin_id":"%s","name":"cc1","data":"{\"v\":1}"}`, createdPlugin.ID)
+	req = httptest.NewRequest(http.MethodPost, "/be/api/v1/custom_content", strings.NewReader(contentBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+out["auth_token"])
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201 got %d", w.Result().StatusCode)
+	}
+	var createdCard plugin.CustomCard
+	if err := json.NewDecoder(w.Result().Body).Decode(&createdCard); err != nil {
+		t.Fatalf("decode created custom content: %v", err)
+	}
+	if createdCard.PluginID != createdPlugin.ID || createdCard.OwnerID == "" {
+		t.Fatalf("unexpected created custom content: %+v", createdCard)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/be/api/v1/custom_content?plugin_id="+createdPlugin.ID, nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+	var listCards []plugin.CustomCard
+	if err := json.NewDecoder(w.Result().Body).Decode(&listCards); err != nil {
+		t.Fatalf("decode list custom content: %v", err)
+	}
+	if len(listCards) != 1 {
+		t.Fatalf("expected 1 list card got %d", len(listCards))
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/be/api/v1/my_custom_content/"+createdCard.OwnerID+"/"+createdPlugin.ID, nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+	var myCards []plugin.CustomCard
+	if err := json.NewDecoder(w.Result().Body).Decode(&myCards); err != nil {
+		t.Fatalf("decode my custom content: %v", err)
+	}
+	if len(myCards) != 1 {
+		t.Fatalf("expected 1 my card got %d", len(myCards))
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/be/api/v1/all_custom_content/"+createdCard.OwnerID+"/"+createdPlugin.ID, nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+	var allResp struct {
+		UserID   string              `json:"user_id"`
+		PluginID string              `json:"plugin_id"`
+		Cards    []plugin.CustomCard `json:"cards"`
+	}
+	if err := json.NewDecoder(w.Result().Body).Decode(&allResp); err != nil {
+		t.Fatalf("decode all custom content: %v", err)
+	}
+	if allResp.PluginID != createdPlugin.ID || len(allResp.Cards) != 1 {
+		t.Fatalf("unexpected all custom content response: %+v", allResp)
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/be/api/v1/custom_content/"+createdCard.ID, nil)
+	req.Header.Set("Authorization", "Bearer "+out["auth_token"])
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusNoContent {
+		t.Fatalf("expected 204 got %d", w.Result().StatusCode)
 	}
 
 	// admin contact

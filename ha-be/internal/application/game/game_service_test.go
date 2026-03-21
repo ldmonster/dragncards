@@ -74,7 +74,7 @@ func TestGameServiceEvaluateActionList(t *testing.T) {
 	pluginRepo := persistence.NewInMemoryPluginRepository()
 	pluginSvc := plugin.NewService(pluginRepo)
 	_, _ = pluginSvc.Create("test-plugin", true)
-	_, _ = pluginSvc.CreateCustomCard("p-1", "card-1", "{\"foo\":\"bar\"}")
+	_, _ = pluginSvc.CreateCustomCard("p-1", "u-1", "card-1", "{\"foo\":\"bar\"}")
 	gameSvc := NewGameServiceWithPlugin(roomSvc, registry, nil, pluginSvc)
 
 	ctx := context.Background()

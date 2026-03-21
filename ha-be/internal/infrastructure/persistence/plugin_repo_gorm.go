@@ -72,6 +72,17 @@ func (r *GormPluginRepository) ListCustomCards(pluginID string) ([]*plugin.Custo
 	return cards, nil
 }
 
+func (r *GormPluginRepository) ListCustomCardsByOwner(ownerID, pluginID string) ([]*plugin.CustomCard, error) {
+	if ownerID == "" || pluginID == "" {
+		return nil, errors.New("owner_id and plugin_id required")
+	}
+	var cards []*plugin.CustomCard
+	if err := r.db.Where("plugin_id = ? AND owner_id = ?", pluginID, ownerID).Find(&cards).Error; err != nil {
+		return nil, err
+	}
+	return cards, nil
+}
+
 func (r *GormPluginRepository) FindCustomCardByID(id string) (*plugin.CustomCard, error) {
 	if id == "" {
 		return nil, errors.New("custom card not found")
@@ -122,6 +133,20 @@ func (r *GormPluginRepository) Update(p *plugin.Plugin) error {
 		return errors.New("invalid plugin")
 	}
 	return r.db.Save(p).Error
+}
+
+func (r *GormPluginRepository) DeleteCustomCard(id string) error {
+	if id == "" {
+		return errors.New("custom card id required")
+	}
+	res := r.db.Delete(&plugin.CustomCard{}, "id = ?", id)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("custom card not found")
+	}
+	return nil
 }
 
 func (r *GormPluginRepository) UpsertCustomCard(card *plugin.CustomCard) error {

@@ -117,6 +117,7 @@ func (r *InMemoryUserRepository) Update(user *identity.User) error {
 		existing.PasswordHash = user.PasswordHash
 		existing.Confirmed = user.Confirmed
 		existing.IsAdmin = user.IsAdmin
+		existing.PatreonTier = user.PatreonTier
 		existing.ConfirmToken = user.ConfirmToken
 		existing.ConfirmTokenExpiresAt = user.ConfirmTokenExpiresAt
 		existing.ResetToken = user.ResetToken

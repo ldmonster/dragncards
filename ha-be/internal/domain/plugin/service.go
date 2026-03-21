@@ -39,7 +39,7 @@ func (s *PluginService) FindByID(id string) (*Plugin, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *PluginService) CreateCustomCard(pluginID, name, data string) (*CustomCard, error) {
+func (s *PluginService) CreateCustomCard(pluginID, ownerID, name, data string) (*CustomCard, error) {
 	if pluginID == "" || name == "" {
 		return nil, fmt.Errorf("plugin_id and name required")
 	}
@@ -47,7 +47,7 @@ func (s *PluginService) CreateCustomCard(pluginID, name, data string) (*CustomCa
 	if err != nil {
 		return nil, err
 	}
-	card := &CustomCard{ID: fmt.Sprintf("cc-%d", time.Now().UnixNano()), PluginID: pluginID, Name: name, Data: data}
+	card := &CustomCard{ID: fmt.Sprintf("cc-%d", time.Now().UnixNano()), PluginID: pluginID, OwnerID: ownerID, Name: name, Data: data}
 	if err := s.repo.CreateCustomCard(card); err != nil {
 		return nil, err
 	}
@@ -59,6 +59,20 @@ func (s *PluginService) ListCustomCards(pluginID string) ([]*CustomCard, error) 
 		return nil, fmt.Errorf("plugin_id required")
 	}
 	return s.repo.ListCustomCards(pluginID)
+}
+
+func (s *PluginService) ListCustomCardsByOwner(ownerID, pluginID string) ([]*CustomCard, error) {
+	if ownerID == "" || pluginID == "" {
+		return nil, fmt.Errorf("owner_id and plugin_id required")
+	}
+	return s.repo.ListCustomCardsByOwner(ownerID, pluginID)
+}
+
+func (s *PluginService) DeleteCustomCard(id string) error {
+	if id == "" {
+		return fmt.Errorf("custom card id required")
+	}
+	return s.repo.DeleteCustomCard(id)
 }
 
 func (s *PluginService) FindCustomCardByID(id string) (*CustomCard, error) {
