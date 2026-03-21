@@ -46,20 +46,19 @@ compare progress files with implementation. No new features — only evaluation 
 - WARN `channel_registry.go` is not listed in plan §4 folder structure. It is used as the dispatch entry point called from `ws.go`. It is not dead code — it is the correct place for routing logic. Not a problem, just undocumented in plan.
 - WARN `chat_channel.go`, `lobby_channel.go`, `my_topic_channel.go` remain minimal stubs — no reconnect, no history, no message persistence beyond in-memory broadcast. Plan §6 channel table lists these as real channels but plan does not specify their persistence requirements.
 - WARN `conn.go` write pump uses buffered channel but ping/pong heartbeat is not verified in tests.
-- WARN `jwt/v4` noted as TODO in previous review — now resolved: `go.mod` uses `github.com/golang-jwt/jwt/v5 v5.3.1`.
 - WARN Tests only cover offline POST path (`ws_test.go`). No tests for live WS upgrade+read+write cycle, ping/pong, or disconnect/reconnect.
-- WARN `current_state` server-to-client event is listed in plan §6 channel table for room but is not generated anywhere. `request_state` returns `send_state`, not `current_state`.
+- OK `current_state` server-to-client event is now generated in two cases: on `phx_join` (sent directly to joining peer) and in response to `request_state` — plan §6 channel table satisfied.
 
 ## TODO
 
 - [ ] Add WS integration tests: live upgrade, read/write, disconnect, ping/pong heartbeat.
 - [ ] Add tests for chat/lobby/lfg/my_topic channels (join, message, leave).
-- [ ] Clarify `current_state` vs `send_state` — plan lists both; implementation only sends `send_state`.
 
 ## Outcome
 
-- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20 — all findings still valid)
-- [x] All previously noted TODOs resolved: jwt v5, save_replay, users_changed, seats_changed, spectators_changed, gui_update, bad_game_state — all now implemented
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-21)
+- [x] `current_state` event now generated in `room_channel.go` on `phx_join` and `request_state` — previous WARN resolved
+- [x] All previously noted TODOs resolved: jwt v5, save_replay, users_changed, seats_changed, spectators_changed, gui_update, bad_game_state, current_state — all now implemented
 - [x] channel_registry.go confirmed in use — not dead code
 - [x] Review points tracked with check marks
 - [x] No new features suggested; findings are gaps vs the existing plan

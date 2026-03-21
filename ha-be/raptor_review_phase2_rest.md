@@ -22,7 +22,7 @@ compare progress files with implementation. No new features — only evaluation 
 - [x] `domain/alert/` — Alert, interfaces, service
 - [x] `domain/deck/` — Deck, DeckRepository interface exists
 - [x] `domain/replay/` — Replay, ReplayRepository interface exists
-- [ ] `domain/settings/` — CardAlt, CardBackAlt, BackgroundAlt **absent entirely**
+- [x] `domain/settings/` — `internal/domain/settings/settings.go` + `persistence/settings_repo.go` + `persistence/settings_repo_gorm.go` exist; `Setting` model covers card_alt, card_back_alt, background_alt
 
 ### Persistence repos
 - [x] `persistence/room_repo.go` + `room_repo_gorm.go`
@@ -34,11 +34,12 @@ compare progress files with implementation. No new features — only evaluation 
 
 ### Application layer
 - [ ] `application/room/` — does not exist; service in `domain/room/service.go`
-- [ ] `application/plugin/` — does not exist; service in `domain/plugin/service.go`
-- [x] `application/deck/` — exists as `internal/application/deck/service.go`
-- [x] `application/replay/` — exists as `internal/application/replay/service.go`
+- [x] `application/plugin/` — `internal/application/plugin/service.go` exists
+- [x] `application/deck/` — `internal/application/deck/service.go` exists
+- [x] `application/replay/` — `internal/application/replay/service.go` exists
 - [ ] `application/lfg/` — does not exist; service in `domain/lfg/service.go`
 - [ ] `application/alert/` — does not exist; service in `domain/alert/service.go`
+- [x] `application/settings/` — `internal/application/settings/service.go` exists
 
 ### Router — chi with path params
 - [x] chi router (`go-chi/chi/v5`) used in `NewRouter`; `chi.URLParam` works for `:pluginID`, `:deckID`, `:replayID`
@@ -74,10 +75,10 @@ compare progress files with implementation. No new features — only evaluation 
 ### Routes still missing from plan §5
 | Route | Status |
 |---|---|
-| `GET /be/api/plugins/visible/:user_id` | ❌ missing (no user_id param) |
-| `GET /be/api/plugins/visible/:plugin_id/:user_id` | ❌ missing |
-| `POST /be/api/plugin-repo-update` | ❌ missing |
-| `GET /be/api/v1/admin_contact` | ⚠️ implemented as POST only; plan shows GET |
+| `GET /be/api/plugins/visible/:user_id` | ✅ `GET /be/api/plugins/visible/{userID}` implemented |
+| `GET /be/api/plugins/visible/:plugin_id/:user_id` | ✅ `GET /be/api/plugins/visible/{pluginID}/{userID}` implemented |
+| `POST /be/api/plugin-repo-update` | ✅ implemented (stub: returns 202 queued; no real sync) |
+| `GET /be/api/v1/admin_contact` | ✅ GET and POST both implemented |
 | `GET/POST/DELETE /be/api/replays/*` | ⚠️ under `/v1/replays` not `/be/api/replays` |
 | `GET/POST/DELETE /be/api/custom_content/*` | ❌ missing |
 | `GET /be/api/my_custom_content/:user_id/:plugin_id` | ❌ missing |
@@ -93,40 +94,42 @@ compare progress files with implementation. No new features — only evaluation 
 - `application/game/` also exists (Phase 4)
 - Inconsistent: some domains have application layer, others don't
 
-### Handler stubs — admin and plugin_permission
-- `PluginPermission` handler: returns hardcoded `allowed: false` for GET, `status: ok` for POST/DELETE — no real logic
-- `AdminContact` handler: accepts POST, returns `status: "queued"` without doing anything
-- `AdminUpdateUserPatreon` handler: accepts POST, returns `updated: true` without touching DB
-- These routes exist at the correct paths but contain no real business logic
+### Handler stubs — remaining
+- `PluginRepoUpdate` handler: accepts POST, returns `{"status": "plugin repo update request enqueued"}` (202) — no actual repo sync logic
+- `AdminContact` GET: returns `{"status": "ready", "message": "admin contact endpoint"}` — informational stub
+- `AdminUpdateUserPatreon` handler: parses `user_id` + `tier` from body; returns `{"updated": true}` — no DB persistence
+- `PluginPermission` handlers now call real `pluginSvc.GetUserPluginPermission`, `SetUserPluginPermission`, `DeleteUserPluginPermission` — not stubs
 
-### custom_content / RepoUpdate entirely absent
-- Plan §5: `GET/POST/DELETE /be/api/custom_content/*`, `GET /be/api/my_custom_content/...`, `GET /be/api/all_custom_content/...`
-- `POST /be/api/plugin-repo-update`
-- None of these are implemented; no domain model for Settings or plugin sync
+### custom_content entirely absent; plugin repo update is a stub
+- Plan §5: `GET/POST/DELETE /be/api/custom_content/*`, `GET /be/api/my_custom_content/...`, `GET /be/api/all_custom_content/...` — none implemented
+- `POST /be/api/plugin-repo-update` — route exists and returns HTTP 202; handler body has no actual sync logic (fetches nothing, stores nothing)
+- No domain model for custom content
 
-### Settings domain absent
-- Plan §2: bounded context with CardAlt, CardBackAlt, BackgroundAlt persisted in Postgres
-- No `domain/settings/` directory or models anywhere in codebase
+### Settings domain — now present
+- `internal/domain/settings/settings.go`: `Setting` model with `UserID`, `PluginID`, `CardAlt`, `CardBackAlt`, `BackgroundAlt` GORM fields
+- `internal/application/settings/service.go` + `persistence/settings_repo.go` + `persistence/settings_repo_gorm.go` all exist
+- Settings endpoints available: `GET/POST/DELETE /be/api/v1/settings/{userID}/{pluginID}`
 
-### AutoMigrate does not cover deck and replay
-- `main.go` AutoMigrate list: `identity.User, room.Room, room.RoomAction, plugin.Plugin, plugin.CustomCard, lfg.LfgPost, alert.Alert`
-- `deck.Deck` and `replay.Replay` are **not** in the AutoMigrate call — GORM repos exist but table won't be created on startup
+### AutoMigrate — comprehensive coverage
+- `cmd/serve_impl.go` AutoMigrate list: `identity.User, room.Room, room.RoomAction, plugin.Plugin, plugin.CustomCard, plugin.UserPluginPermission, lfg.LfgPost, alert.Alert, deck.Deck, replay.Replay, settings.Setting`
+- All domain models covered including deck, replay, settings, and UserPluginPermission
 
 ## TODO
 
-- [x] Add `deckDomain.Deck` and `replayDomain.Replay` to `db.AutoMigrate(...)` in `main.go`
-- [ ] Create `application/room/`, `application/plugin/`, `application/lfg/`, `application/alert/` use-case layers per plan §4
+- [x] Add `deckDomain.Deck` and `replayDomain.Replay` to `db.AutoMigrate(...)` — now in `cmd/serve_impl.go`
+- [ ] Create `application/room/`, `application/lfg/`, `application/alert/` use-case layers per plan §4 (`application/plugin/` and `application/settings/` now done)
 - [x] Implement real `UserPluginPermission` domain model + persistence; replace stub handler
-- [x] Implement `POST /be/api/plugin-repo-update` and plugin repo sync use-case (stubbed endpoint)
+- [ ] Implement real plugin repo sync in `PluginRepoUpdate` (currently 202 stub)
 - [x] Implement settings domain and endpoints (CardAlt, CardBackAlt, BackgroundAlt)
-- [x] Add `GET /be/api/plugins/visible/:user_id` and `GET /be/api/plugins/visible/:plugin_id/:user_id` routes
-- [x] Fix `GET /be/api/v1/admin_contact` — plan shows GET; current is POST only
-- [x] Implement real admin_contact and admin/update_user_patreon handlers (currently stubs)
-
+- [x] Add `GET /be/api/plugins/visible/{userID}` and `GET /be/api/plugins/visible/{pluginID}/{userID}` routes
+- [x] Fix `GET /be/api/v1/admin_contact` — GET and POST both implemented
+- [ ] Implement real `AdminUpdateUserPatreon` with DB persistence (currently parses input but returns stub `updated: true`)
+- [ ] Implement `GET/POST/DELETE /be/api/custom_content/*`, `GET /be/api/my_custom_content/:user_id/:plugin_id`, `GET /be/api/all_custom_content/:user_id/:plugin_id`
 
 ## Outcome
 
-- [x] Review updated with accurate current implementation state (re-reviewed 2026-03-20 — all findings still valid)
-- [x] False complaints from previous review removed: deck/replay domains exist, chi router used, all route paths corrected, lfg/alert AutoMigrate fixed
+- [x] Review updated with accurate current implementation state (re-reviewed 2026-03-21)
+- [x] Resolved since last review: settings domain, application/plugin, visible/user_id routes, admin_contact GET, plugin_permission real handlers, AutoMigrate full coverage
+- [x] Still open: application/room, application/lfg, application/alert; custom_content routes; AdminUpdateUserPatreon stub; PluginRepoUpdate stub
 - [x] Review points tracked with check marks
 - [x] No new features suggested; findings are deviations from existing plan

@@ -40,7 +40,7 @@ compare progress files with implementation. No new features - only evaluation of
 | `domain/game/evaluate/context.go` — EvalContext | [x] exists; typed accessors for Card/Stack/Group/PlayerInfo |
 | `domain/game/evaluate/function.go` — GameFunction interface | [x] `Execute(ctx *EvalContext, args []any)` — type-safe |
 | `domain/game/evaluate/variable.go` — GameVariable interface | [x] standalone file; `Resolve(ctx *EvalContext)` — type-safe |
-| `domain/game/evaluate/functions/` — ~100 DSL ops | [~] only `noop`, `add`, `sub`, `mul`, `div` (5 of ~100) |
+| `domain/game/evaluate/functions/` — ~100 DSL ops | [~] 79 of ~100 functions registered; files: arithmetic, comparison, collection, collection_advanced, collection_basic, collection_group, advanced, advanced_control, string_ops, concat, plugin, noop |
 | `application/game/room_registry.go` | [x] in-memory map[slug]*GameRoom with `Close()` / `Done()` |
 | `application/game/game_service.go` | [x] CreateGame, SendAction, GetGameUI, ResetGame, run goroutine with `ctx.Done()` and `Done()` cancel paths |
 | `infrastructure/gamestate/store.go` — GameStateStore interface | [x] exists: Save, Load, Delete |
@@ -50,27 +50,33 @@ compare progress files with implementation. No new features - only evaluation of
 | AppendAction errors logged | [x] `s.log.Error(...)` — not silently dropped |
 | GameRoom.Close() + Done() for clean shutdown | [x] present in `room_registry.go` |
 
+## Files read (added 2026-03-21)
+- `ha-be/internal/domain/game/evaluate/engine.go`
+- `ha-be/internal/domain/game/evaluate/tests/engine_arithmetic_test.go`
+- `ha-be/internal/domain/game/evaluate/tests/engine_collection_test.go`
+- `ha-be/internal/domain/game/evaluate/tests/engine_dsl_test.go`
+- `ha-be/internal/domain/game/evaluate/functions/` (all 16 files counted)
+
 ## Findings vs Plan
 
-- OK full DSL function set now implemented and registered via `functions.RegisterBuiltins` (including advanced and control ops: `one_card`, `for_each_key_val`, `var`, `prev`, `cond`, `while`, `move_card`, etc.).
-- OK `infrastructure/gamestate/` is now fully wired in `main.go`: if `cfg.Redis.URL` is set, a Redis client is initialised and `NewRedisGameStateStore` is used; otherwise `NewPostgresGameStateStore` is used; in-memory fallback when neither DB nor Redis is available.
-- OK `game_states` table is created by `pgStore.AutoMigrate()` called in `main.go` (line 107) whenever a Postgres store is selected. Fixed as of 2026-03-20.
+- OK full DSL function set substantially implemented: 79 functions registered across 16 source files covering arithmetic, comparison, boolean logic, string ops, collection ops (map/filter/reduce), group ops, object path read/write, control flow (cond/while), game ops (move_card, one_card, for_each_key_val), var/prev, and plugin ops.
+- OK `engine.go` exists as the full expression evaluation entry point; handles raw list literals, nested command fallback, root command dispatch.
+- OK expanded test suite: `evaluate/tests/engine_arithmetic_test.go`, `engine_collection_test.go`, `engine_dsl_test.go` — 3 test files, all passing.
+- OK `infrastructure/gamestate/` is now fully wired in `cmd/serve_impl.go`: if `cfg.Redis.URL` is set, a Redis client is initialised and `NewRedisGameStateStore` is used; otherwise `NewPostgresGameStateStore` is used; in-memory fallback when neither DB nor Redis is available.
+- OK `game_states` table is created by `pgStore.AutoMigrate()` called in `cmd/serve_impl.go` whenever a Postgres store is selected.
 
 ## TODO
 
-- [ ] Port remaining ~95 DSL functions into `evaluate/functions/` per plan §8.
-- [x] Add store selection logic in `main.go` — Redis/Postgres/in-memory selection implemented (2026-03-20).
-- [x] `game_states` table created via `pgStore.AutoMigrate()` in `main.go` (2026-03-20).
-- [x] Redis client initialised in `main.go` when `cfg.Redis.URL` is non-empty (2026-03-20).
+- [ ] Port remaining ~21 DSL functions into `evaluate/functions/` per plan §8 (79 of ~100 registered as of 2026-03-21).
+- [x] Add store selection logic in `cmd/serve_impl.go` — Redis/Postgres/in-memory selection implemented.
+- [x] `game_states` table created via `pgStore.AutoMigrate()` in `cmd/serve_impl.go`.
+- [x] Redis client initialised in `cmd/serve_impl.go` when `cfg.Redis.URL` is non-empty.
+- [x] Confirmed fix for replay on reconnect in `GameService.CreateGame`.
+- [ ] Phase 5 plugin extension work still pending.
 
 ## Outcome
-- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20).
-- [x] Previously reported false gaps resolved: card/stack/group/player_info models exist; GameUI has all maps; EvalContext has typed accessors; variable.go is standalone; GameFunction and GameVariable use *EvalContext; gamestate stores all exist; ctx.Done() and Close() present; AppendAction errors logged.
-- [x] Stale TODOs resolved: stateStore selection logic wired; game_states AutoMigrate wired; Redis client init wired — all three fixed in main.go.
-- [x] GameService now supports replaying historical room actions to restore game state when a room goroutine is recreated (no snapshot store required).
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-21).
+- [x] DSL function count updated from 5 to 79; engine.go and expanded test suite confirmed.
+- [x] All store selection and AutoMigrate wiring confirmed in `cmd/serve_impl.go` (previously in `main.go`).
 - [x] Review points tracked with check marks.
 - [x] No new features suggested; findings are gaps vs the existing plan.
-
-## TODO
-- [x] Confirmed fix for replay on reconnect in GameService.CreateGame
-- [ ] Phase 5 plugin extension work still pending

@@ -29,9 +29,9 @@ compare progress files with implementation. No new features — only evaluation 
 - [x] Auth TTL wired from config — `main.go` reads `cfg.Auth.AccessLifetime` / `cfg.Auth.RefreshLifetime` and passes to handler and identity service ✅
 - [x] `POST /be/api/v1/recaptcha/verify` — `VerifyRecaptcha` handler implemented ✅
 - [x] Password hashing uses bcrypt (`golang.org/x/crypto/bcrypt`) ✅
-- [ ] `application/identity/` use-case layer — **does not exist**; all logic stays in `domain/identity/service.go`
+- [x] `application/identity/` use-case layer — `internal/application/identity/service.go` exists; wraps domain service
 - [ ] `interfaces/http/identity/` package — **does not exist**; all handlers in monolithic `handler.go`
-- [ ] `GET /be/api/v1/confirm-email/:token` — implemented as query param `?token=` not path segment (minor deviation from plan)
+- [x] `GET /be/api/v1/confirm-email/:token` — `GET /be/api/v1/confirm-email/{token}` implemented as path param; legacy query param route also present
 
 ## Findings vs Plan
 
@@ -59,22 +59,24 @@ compare progress files with implementation. No new features — only evaluation 
 - Confirm/reset tokens moved from in-memory maps to `users` table columns (`confirm_token`, `confirm_token_expires_at`, `reset_token`, `reset_token_expires_at`)
 - `IdentityService` now uses repository lookups by token and clears token fields after use
 
-### Token revocation is still in-memory only
-- Both `confirmTokens` and `resetTokens` on `IdentityService` are in-memory maps
-- Lost on server restart; no DB or Redis persistence
-- Plan §7 notes stateless approach for JWT, but confirm/reset tokens are not JWTs — they are string tokens stored in service memory
+### token persistence — now DB-backed
+- Confirm/reset tokens are columns on `users` table: `ConfirmToken`, `ConfirmTokenExpiresAt`, `ResetToken`, `ResetTokenExpiresAt` (GORM `varchar(256)` + `index`)
+- `IdentityService` uses repository lookups by token and clears token fields after use
+- No in-memory maps remain; tokens survive server restart
 
 ## TODO
 
-- [x] Create `application/identity/` with use-case functions per plan folder structure (implemented)
-- [ ] Move identity HTTP handlers to `interfaces/http/identity/` package
+- [x] Create `application/identity/` with use-case functions per plan folder structure (`internal/application/identity/service.go` exists)
+- [ ] Move identity HTTP handlers to `interfaces/http/identity/` package (all handlers still in monolithic `handler.go`)
 - [x] Change confirm-email route to path param `:token` to match plan §5 (already implemented, with legacy query fallback)
-- [ ] Persist confirm/reset tokens to DB (store on `users` table or separate table) to survive restarts
+- [x] Persist confirm/reset tokens to DB — `ConfirmToken`, `ConfirmTokenExpiresAt`, `ResetToken`, `ResetTokenExpiresAt` are GORM columns on `User`; no in-memory maps remain
 
 ## Outcome
 
-- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20)
-- [x] Previously reported false gaps corrected: email mailer, ConfirmEmail/ResetPassword persistence, token TTL, JWT v5, recaptcha endpoint, bcrypt, auth TTL from config — all now implemented
-- [x] New finding added: progress files claim SHA-256 hashing but implementation uses bcrypt — progress files are inaccurate
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-21)
+- [x] `application/identity/service.go` confirmed present — TODO resolved
+- [x] Token persistence confirmed: confirm/reset tokens stored in DB columns, no in-memory maps — TODO resolved
+- [x] Still open: `interfaces/http/identity/` package; all identity handlers remain in monolithic `handler.go`
+- [x] Progress file SHA-256 vs bcrypt discrepancy still valid — implementation correctly uses bcrypt; progress files remain inaccurate
 - [x] Review points tracked with check marks
 - [x] No new features suggested; findings are deviations from existing plan

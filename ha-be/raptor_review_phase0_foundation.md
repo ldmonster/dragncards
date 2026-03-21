@@ -33,29 +33,27 @@ compare progress files with implementation. No new features — only evaluation 
 - [x] `github.com/redis/go-redis/v9` in go.mod ✅
 - [x] `github.com/spf13/cobra` in go.mod ✅
 - [x] `github.com/golang-jwt/jwt/v5` in go.mod ✅ (v5, matches plan §12)
-- [x] `github.com/golang-migrate/migrate/v4` in go.mod — implemented
-- [x] `cmd/serve.go` fully implemented — now calls `RunServe()` with config flag
-- [x] `cmd/migrate.go` fully implemented — now runs `migrate.Up()` with proper file source
-- [x] cobra `cmd.Execute()` called from `main.go` — now `main.go` delegates to cobra from cmd package
+- [x] `github.com/golang-migrate/migrate/v4` in go.mod — `v4.17.1` ✅; `migrations/` directory with SQL files added
+- [x] `cmd/serve.go` fully implemented — calls `RunServe()` with config flag
+- [x] `cmd/migrate.go` fully implemented — runs `migrate.Up()` with proper file source
+- [x] cobra `cmd.Execute()` called from `main.go` — `main.go` is now just `cmd.Execute()`
 - [x] `golang-migrate` SQL migration files — `migrations/000001_create_schema.up.sql` and down file added; CLI applies
 
 
 ## Findings vs Plan
 
-### cobra CLI is dead code
-- Plan §13 Phase 0: cobra commands to start server (`serve.go`) and run migrations (`migrate.go`)
-- Actual: `cmd/root.go` builds the cobra command tree correctly, but `main.go` bypasses it entirely — it uses `flag.String("config", ...)` and calls `flag.Parse()` then starts the server inline
-- `cmd.Execute()` is never called from `main.go`
-- `cmd/serve.go` prints: `"Server startup path is not implemented in offline legacy mode. Use go run main.go"`
-- `cmd/migrate.go` prints: `"Migration command is stubbed in offline mode"`
-- Progress file marks cobra CLI as done — this is misleading; structure exists but is unused
+### cobra CLI — fully active
+- `main.go` delegates entirely to `cmd.Execute()` (single import + call; no flags)
+- `cmd/serve.go` calls `RunServe(serveCfgPath)` from `cmd/serve_impl.go`; `--config` flag wired
+- `cmd/migrate.go` calls `migrate.New("file://"+migrationSourcePath, cfg.Database.URL).Up()` — real `golang-migrate` logic; `--config` and `--path` flags wired
+- `cmd/root.go` adds both commands via `init()`; `Execute()` exported and used from `main.go`
+- All progress-file claims confirmed correct
 
-### golang-migrate absent; AutoMigrate used instead
-- Plan §12: `github.com/golang-migrate/migrate/v4` for SQL migration files
-- Plan §13 Phase 0: `cmd/migrate.go` —  DB migrations cobra command
-- Actual: `db.AutoMigrate(...)` called in `main.go` on startup; no SQL migration files directory
-- `golang-migrate` not in `go.mod`
-- AutoMigrate is acceptable for development but does not satisfy plan's SQL-file migration requirement
+### golang-migrate present; SQL migration files exist
+- `github.com/golang-migrate/migrate/v4 v4.17.1` in `go.mod`
+- `migrations/000001_create_schema.up.sql` and `migrations/000001_create_schema.down.sql` present
+- `cmd/migrate.go` applies migrations via `golang-migrate` CLI path
+- `db.AutoMigrate(...)` still called in `cmd/serve_impl.go` on startup as an additional safety net — acceptable duplication; does not break plan requirement
 
 ### go.mod dependency status vs plan §12
 | Planned | In go.mod | Status |
@@ -65,7 +63,7 @@ compare progress files with implementation. No new features — only evaluation 
 | `gorm.io/driver/postgres` | ✅ v1.6.0 | ok |
 | `nhooyr.io/websocket` | ✅ v1.8.17 | ok |
 | `github.com/golang-jwt/jwt/v5` | ✅ v5.3.1 | ok |
-| `github.com/golang-migrate/migrate/v4` | ❌ absent | missing |
+| `github.com/golang-migrate/migrate/v4` | ✅ v4.17.1 | ok |
 | `github.com/spf13/cobra` | ✅ v1.10.2 | ok |
 | `github.com/redis/go-redis/v9` | ✅ v9.18.0 | ok |
 | `go.opentelemetry.io/otel` | ❌ absent | missing (Phase 6) |
@@ -77,14 +75,12 @@ Note: OTel and Prometheus are Phase 6 items — not expected in Phase 0.
 
 ## TODO
 
-- [ ] Implement `cmd/serve.go` to call real server startup; wire `cmd.Execute()` from `main.go` instead of `flag`
-- [ ] Implement `cmd/migrate.go` with real migration logic using `golang-migrate`
-- [ ] Add `github.com/golang-migrate/migrate/v4` to go.mod; create `migrations/` directory with SQL files per plan §13
-- [ ] Call `cmd.Execute()` from `main.go` (currently dead code)
+(nothing outstanding — all plan Phase 0 items confirmed implemented)
 
 ## Outcome
 
-- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20 — cobra still dead code, golang-migrate still absent, all findings still valid)
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-21 — cobra active, golang-migrate present, all findings resolved)
+- [x] Previously reported gaps resolved: cobra CLI now fully active (`cmd.Execute()` called from `main.go`); `cmd/serve.go` and `cmd/migrate.go` both fully implemented; `golang-migrate v4.17.1` in `go.mod`; SQL migration files in `migrations/`
 - [x] Previously reported false gaps corrected: config YAML, logger Trace/Fatal, database WithTx/RawQuery, redis real client, chi router, CORS, middleware, jwt v5 — all implemented
 - [x] Review points tracked with check marks
 - [x] No new features suggested; findings are deviations from existing plan

@@ -43,13 +43,13 @@ compare progress files with implementation. No new features - only evaluation of
 
 ## TODO
 
-- [ ] Add offline-start feature note to `PLAN.md`; plan currently has no awareness of the POST fallback path.
+- [~] Add offline-start feature note to `PLAN.md` — progress tracker row mentions `+ offline POST path` but §13 Phase 3 implementation checklist does not document it at all; minimal mention only.
 - [x] Persist seat/spectator assignments in `GameUI` when `set_seat` / `set_spectator` are received so `seats_changed` / `spectators_changed` carry actual state.
 - [ ] Add tests for chat/lobby/lfg/my_topic offline POST flows and WS reconnect handling.
 - [ ] Clarify `game_action` error response when game room does not exist yet.
 
 ## Outcome
-- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20 — all findings still valid).
-- [x] Previously reported gaps resolved: `save_replay` handled, `users_changed`/`seats_changed`/`spectators_changed`/`gui_update`/`bad_game_state` events generated, `AppendAction` errors logged, `gameSvc` wired end-to-end.
+- [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-21 — all open findings still valid).
+- [x] ``PLAN.md`` offline POST minimally mentioned in progress tracker but not in §13 Phase 3 checklist.
 - [x] Review points tracked with check marks.
 - [x] No new features suggested; findings are gaps vs the existing plan.
