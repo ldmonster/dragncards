@@ -170,3 +170,31 @@ func (r *InMemoryPluginRepository) DeletePermission(pluginID, userID string) err
 	delete(r.permissions, key)
 	return nil
 }
+
+func (r *InMemoryPluginRepository) Update(p *plugin.Plugin) error {
+	if p == nil || p.ID == "" {
+		return errors.New("invalid plugin")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	_, ok := r.plugins[p.ID]
+	if !ok {
+		return errors.New("plugin not found")
+	}
+	r.plugins[p.ID] = p
+	return nil
+}
+
+func (r *InMemoryPluginRepository) UpsertCustomCard(card *plugin.CustomCard) error {
+	if card == nil || card.ID == "" || card.PluginID == "" {
+		return errors.New("invalid custom card")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.customCards[card.ID] = card
+	return nil
+}

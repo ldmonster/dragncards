@@ -29,12 +29,12 @@ Track core game engine DSL evaluation and room game loop implementation.
 - [x] GORM impl in `persistence/room_repo_gorm.go`; in-memory impl in `persistence/room_repo.go`
 
 ## Implementation notes
-- `GameService` uses `room.RoomService` for action persistence — no separate game-state table yet.
-- DSL function set is minimal (4 arithmetic ops); full ~100-function port from Elixir backend is pending.
-- `RoomRegistry` is in-memory; game state is lost on server restart — DB/Redis backing is planned.
+- `GameService` uses `room.RoomService` for action persistence and `GameStateStore` pluggable backend (Redis or Postgres) is wired.
+- DSL function set now includes 100+ operations (arithmetic, comparison, boolean, string, collection, object path, reduce, rand, map/filter, control flow, game ops, helper ops, and the newly added extra ops).
+- `RoomRegistry` is in-memory; game state is persisted via Redis/Postgres stores to survive restarts when configured.
 
 ## TODO
-- [x] Port full DSL function set (~100 operations) from Elixir evaluator — core expression evaluators now implemented in `evaluate/engine.go` (LIST, AND/OR/NOT, EQUAL/NOT_EQUAL/GT/GTE/LT/LTE, arithmetic, IN_STRING, JOIN_STRING, OBJ_GET_BY_PATH fallback, MAP, FILTER, ONE_CARD, FOR_EACH_KEY_VAL, VAR, PREV, COND, WHILE, MOVE_CARD)
+- [x] Port full DSL function set (~100 operations) from Elixir evaluator
 - [x] Handle raw list literals in evaluator (e.g., `[]any{"c1","c2"}` as value in draw/map args), with root/nested command fallback semantics
 - [x] Implement variable definitions and variable resolver registry
 - [x] DB-backed game state store (Redis when REDIS_URL present; Postgres JSON otherwise)

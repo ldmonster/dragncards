@@ -41,6 +41,10 @@ func (s *Service) FindCustomCardByID(cardID string) (*plugin.CustomCard, error) 
 	return s.domain.FindCustomCardByID(cardID)
 }
 
+func (s *Service) SyncRepository(repoURL string) ([]*plugin.Plugin, error) {
+	return s.domain.SyncRepository(repoURL)
+}
+
 func (s *Service) LoadCardsByPlugin() (map[string]map[string]any, error) {
 	plugins, err := s.domain.ListVisible()
 	if err != nil {

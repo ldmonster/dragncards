@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -838,7 +839,27 @@ func (h *APIHandler) PluginRepoUpdate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	writeJSON(w, http.StatusAccepted, map[string]any{"status": "plugin repo update request enqueued"})
+	var req struct {
+		RepoURL string `json:"repo_url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.RepoURL == "" {
+		writeError(w, http.StatusBadRequest, "repo_url required")
+		return
+	}
+	if h.pluginSvc == nil {
+		writeError(w, http.StatusInternalServerError, "plugin service unavailable")
+		return
+	}
+	plugins, err := h.pluginSvc.SyncRepository(req.RepoURL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "synced", "count": len(plugins), "plugins": plugins})
 }
 
 func (h *APIHandler) GetSetting(w http.ResponseWriter, r *http.Request) {

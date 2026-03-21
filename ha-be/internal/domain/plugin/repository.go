@@ -5,8 +5,10 @@ type PluginRepository interface {
 	List() ([]*Plugin, error)
 	ListVisible() ([]*Plugin, error)
 	FindByID(id string) (*Plugin, error)
+	Update(plugin *Plugin) error
 
 	CreateCustomCard(card *CustomCard) error
+	UpsertCustomCard(card *CustomCard) error
 	ListCustomCards(pluginID string) ([]*CustomCard, error)
 	FindCustomCardByID(id string) (*CustomCard, error)
 

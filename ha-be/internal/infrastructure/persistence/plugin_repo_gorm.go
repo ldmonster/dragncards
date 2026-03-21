@@ -116,3 +116,17 @@ func (r *GormPluginRepository) DeletePermission(pluginID, userID string) error {
 	}
 	return r.db.Where("plugin_id = ? AND user_id = ?", pluginID, userID).Delete(&plugin.UserPluginPermission{}).Error
 }
+
+func (r *GormPluginRepository) Update(p *plugin.Plugin) error {
+	if p == nil || p.ID == "" {
+		return errors.New("invalid plugin")
+	}
+	return r.db.Save(p).Error
+}
+
+func (r *GormPluginRepository) UpsertCustomCard(card *plugin.CustomCard) error {
+	if card == nil || card.ID == "" || card.PluginID == "" {
+		return errors.New("invalid custom card")
+	}
+	return r.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, DoUpdates: clause.AssignmentColumns([]string{"name", "data", "plugin_id"})}).Create(card).Error
+}

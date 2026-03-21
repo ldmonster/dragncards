@@ -1,7 +1,11 @@
 package plugin
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 )
 
@@ -103,4 +107,88 @@ func (s *PluginService) DeleteUserPluginPermission(pluginID, userID string) erro
 		return fmt.Errorf("plugin_id and user_id required")
 	}
 	return s.repo.DeletePermission(pluginID, userID)
+}
+
+type SyncPluginRepoPayload struct {
+	ID      string         `json:"id"`
+	Name    string         `json:"name"`
+	Visible bool           `json:"visible"`
+	RepoURL string         `json:"repo_url"`
+	Cards   []CustomCard   `json:"cards"`
+}
+
+type remotePluginDocument struct {
+	Plugins []SyncPluginRepoPayload `json:"plugins"`
+}
+
+func (s *PluginService) SyncRepository(repoURL string) ([]*Plugin, error) {
+	if repoURL == "" {
+		return nil, fmt.Errorf("repo URL required")
+	}
+
+	resp, err := http.Get(repoURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed fetch repo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("plugin repo returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed read repo body: %w", err)
+	}
+
+	var doc remotePluginDocument
+	if err := json.Unmarshal(body, &doc); err != nil {
+		// Try direct plugin object array fallback.
+		var arr []SyncPluginRepoPayload
+		if err2 := json.Unmarshal(body, &arr); err2 != nil {
+			return nil, fmt.Errorf("failed parse plugin repo JSON: %v", err)
+		}
+		doc.Plugins = arr
+	}
+
+	var synced []*Plugin
+	for _, payload := range doc.Plugins {
+		if payload.Name == "" {
+			continue
+		}
+		pluginObj, err := s.repo.FindByID(payload.ID)
+		if err != nil {
+			// create new plugin if not exists.
+			if payload.ID == "" {
+				payload.ID = fmt.Sprintf("p-%d", time.Now().UnixNano())
+			}
+			pluginObj = &Plugin{ID: payload.ID, Name: payload.Name, Visible: payload.Visible, RepoURL: payload.RepoURL}
+			if err = s.repo.Create(pluginObj); err != nil {
+				return nil, err
+			}
+		} else {
+			pluginObj.Name = payload.Name
+			pluginObj.Visible = payload.Visible
+			pluginObj.RepoURL = payload.RepoURL
+			if err = s.repo.Update(pluginObj); err != nil {
+				return nil, err
+			}
+		}
+
+		for _, c := range payload.Cards {
+			if c.ID == "" || c.PluginID == "" {
+				c.PluginID = pluginObj.ID
+			}
+			if c.Name == "" {
+				continue
+			}
+			if err = s.repo.UpsertCustomCard(&CustomCard{ID: c.ID, PluginID: pluginObj.ID, Name: c.Name, Data: c.Data}); err != nil {
+				return nil, err
+			}
+		}
+
+		synced = append(synced, pluginObj)
+	}
+
+	return synced, nil
 }

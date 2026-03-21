@@ -396,12 +396,22 @@ func TestRoomsAndPluginsEndpoints(t *testing.T) {
 		t.Fatalf("unexpected response: %v", byPlugin)
 	}
 
-	// plugin repo update endpoint
+	// plugin repo update endpoint (no body should fail)
 	req = httptest.NewRequest(http.MethodPost, "/be/api/plugin-repo-update", nil)
 	w = httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
-	if w.Result().StatusCode != http.StatusAccepted {
-		t.Fatalf("expected 202 got %d", w.Result().StatusCode)
+	if w.Result().StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 got %d", w.Result().StatusCode)
+	}
+
+	// No-op sync from invalid repo to ensure path works
+	badBody := strings.NewReader(`{"repo_url":"http://invalid.local"}`)
+	req = httptest.NewRequest(http.MethodPost, "/be/api/plugin-repo-update", badBody)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected 500 got %d", w.Result().StatusCode)
 	}
 
 	// register + login user for protected endpoints

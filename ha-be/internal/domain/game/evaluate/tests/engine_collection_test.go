@@ -264,3 +264,45 @@ func TestEvaluateExpressionAdditionalDSL(t *testing.T) {
 		t.Fatalf("round_to_int failed: %v got %v", err, res)
 	}
 }
+
+func TestEvaluateExpressionExtraOps(t *testing.T) {
+	ctx := evaluate.NewEvalContext(game.NewGameUI("room-1"))
+
+	cases := []struct {
+		name string
+		expr []any
+		want any
+	}{
+		{"mod", []any{functions.ModFunctionName, 10, 3}, 1},
+		{"pow", []any{functions.PowFunctionName, 2, 5}, 32},
+		{"abs", []any{functions.AbsFunctionName, -7}, 7},
+		{"floor", []any{functions.FloorFunctionName, 2.9}, 2},
+		{"ceil", []any{functions.CeilFunctionName, 2.1}, 3},
+		{"is_nil", []any{functions.IsNilFunctionName, nil}, true},
+		{"is_number", []any{functions.IsNumberFunctionName, 42}, true},
+		{"is_string", []any{functions.IsStringFunctionName, "x"}, true},
+		{"is_list", []any{functions.IsListFunctionName, []any{1, 2}}, true},
+		{"is_map", []any{functions.IsMapFunctionName, map[string]any{"a": 1}}, true},
+		{"head", []any{functions.HeadFunctionName, []any{1, 2}}, 1},
+		{"tail", []any{functions.TailFunctionName, []any{1, 2, 3}}, []any{2, 3}},
+		{"first", []any{functions.FirstFunctionName, []any{9, 8}}, 9},
+		{"last", []any{functions.LastFunctionName, []any{9, 8, 7}}, 7},
+		{"keys", []any{functions.KeysFunctionName, map[string]any{"a": 1, "b": 2}}, []any{"a", "b"}},
+		{"values", []any{functions.ValuesFunctionName, map[string]any{"a": 1, "b": 2}}, []any{1, 2}},
+		{"merge", []any{functions.MergeFunctionName, map[string]any{"a": 1}, map[string]any{"b": 2}}, map[string]any{"a": 1, "b": 2}},
+		{"flatten", []any{functions.FlattenFunctionName, []any{functions.ListFunctionName, []any{1, 2}, 3}}, []any{1, 2, 3}},
+		{"union", []any{functions.UnionFunctionName, []any{1, 2}, []any{2, 3}}, []any{1, 2, 3}},
+		{"difference", []any{functions.DifferenceFunctionName, []any{1, 2, 3}, []any{2}}, []any{1, 3}},
+		{"unique", []any{functions.UniqueFunctionName, []any{1, 2, 2, 3}}, []any{1, 2, 3}},
+	}
+
+	for _, c := range cases {
+		res, err := evaluate.EvaluateExpression(ctx, nil, c.expr)
+		if err != nil {
+			t.Fatalf("%s failed: %v", c.name, err)
+		}
+		if !reflect.DeepEqual(res, c.want) {
+			t.Fatalf("%s got %v want %v", c.name, res, c.want)
+		}
+	}
+}

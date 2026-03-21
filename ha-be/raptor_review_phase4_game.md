@@ -67,7 +67,7 @@ compare progress files with implementation. No new features - only evaluation of
 
 ## TODO
 
-- [ ] Port remaining ~21 DSL functions into `evaluate/functions/` per plan §8 (79 of ~100 registered as of 2026-03-21).
+- [x] Port remaining ~21 DSL functions into `evaluate/functions/` per plan §8 (100+ registered now).
 - [x] Add store selection logic in `cmd/serve_impl.go` — Redis/Postgres/in-memory selection implemented.
 - [x] `game_states` table created via `pgStore.AutoMigrate()` in `cmd/serve_impl.go`.
 - [x] Redis client initialised in `cmd/serve_impl.go` when `cfg.Redis.URL` is non-empty.
