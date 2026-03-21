@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ldmonster/dragncards/ha-be/internal/application/identity"
+	identityapp "github.com/ldmonster/dragncards/ha-be/internal/application/identity"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/identity"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/persistence"
 )
