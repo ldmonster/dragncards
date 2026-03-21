@@ -10,13 +10,18 @@ import (
 var ErrPluginNotFound = errors.New("plugin not found")
 
 type InMemoryPluginRepository struct {
-	mu          sync.RWMutex
-	plugins     map[string]*plugin.Plugin
-	customCards map[string]*plugin.CustomCard
+	mu           sync.RWMutex
+	plugins      map[string]*plugin.Plugin
+	customCards  map[string]*plugin.CustomCard
+	permissions  map[string]*plugin.UserPluginPermission
 }
 
 func NewInMemoryPluginRepository() *InMemoryPluginRepository {
-	return &InMemoryPluginRepository{plugins: map[string]*plugin.Plugin{}, customCards: map[string]*plugin.CustomCard{}}
+	return &InMemoryPluginRepository{
+		plugins:     map[string]*plugin.Plugin{},
+		customCards: map[string]*plugin.CustomCard{},
+		permissions: map[string]*plugin.UserPluginPermission{},
+	}
 }
 
 func (r *InMemoryPluginRepository) Create(p *plugin.Plugin) error {
@@ -119,4 +124,49 @@ func (r *InMemoryPluginRepository) FindCustomCardByID(id string) (*plugin.Custom
 		return nil, errors.New("custom card not found")
 	}
 	return c, nil
+}
+
+func (r *InMemoryPluginRepository) CreatePermission(permission *plugin.UserPluginPermission) error {
+	if permission == nil || permission.PluginID == "" || permission.UserID == "" {
+		return errors.New("invalid permission")
+	}
+
+	key := permission.PluginID + ":" + permission.UserID
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.permissions[key] = permission
+	return nil
+}
+
+func (r *InMemoryPluginRepository) GetPermission(pluginID, userID string) (*plugin.UserPluginPermission, error) {
+	if pluginID == "" || userID == "" {
+		return nil, errors.New("permission lookup requires plugin_id and user_id")
+	}
+
+	key := pluginID + ":" + userID
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	p, ok := r.permissions[key]
+	if !ok {
+		return &plugin.UserPluginPermission{PluginID: pluginID, UserID: userID, Allowed: false}, nil
+	}
+	return p, nil
+}
+
+func (r *InMemoryPluginRepository) DeletePermission(pluginID, userID string) error {
+	if pluginID == "" || userID == "" {
+		return errors.New("permission delete requires plugin_id and user_id")
+	}
+
+	key := pluginID + ":" + userID
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.permissions, key)
+	return nil
 }

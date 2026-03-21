@@ -17,3 +17,6 @@ Purpose:
 
 Whats next:
 ```
+
+
+run `make lint` and `make test` after implement something to test correctness

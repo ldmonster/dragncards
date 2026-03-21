@@ -157,6 +157,14 @@ func (s *IdentityService) GetUserByID(id string) (*User, error) {
 	return s.repo.FindByID(id)
 }
 
+func (s *IdentityService) IsAdmin(userID string) (bool, error) {
+	user, err := s.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+	return user.IsAdmin, nil
+}
+
 func (s *IdentityService) ListUsers() ([]*User, error) {
 	return s.repo.List()
 }

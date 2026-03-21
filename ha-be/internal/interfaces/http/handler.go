@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -12,6 +13,7 @@ import (
 	"github.com/ldmonster/dragncards/ha-be/internal/application/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
+	settingsapp "github.com/ldmonster/dragncards/ha-be/internal/application/settings"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/alert"
 	deckDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/identity"
@@ -19,6 +21,7 @@ import (
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/plugin"
 	replayDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
+	"github.com/ldmonster/dragncards/ha-be/internal/domain/settings"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/email"
 	"github.com/ldmonster/dragncards/ha-be/internal/platform/auth"
 	"github.com/ldmonster/dragncards/ha-be/internal/platform/middleware"
@@ -33,13 +36,14 @@ type APIHandler struct {
 	replaySvc       *replay.ReplayService
 	lfgSvc          *lfg.LfgService
 	alertSvc        *alert.AlertService
+	settingsSvc     *settingsapp.Service
 	mailer          email.Mailer
 	recaptchaSecret string
 	authTTL         time.Duration
 	renewTTL        time.Duration
 }
 
-func NewAPIHandler(identitySvc *identity.IdentityService, roomSvc *room.RoomService, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.LfgService, alertSvc *alert.AlertService, mailer email.Mailer, recaptchaSecret string, authTTL, renewTTL time.Duration) *APIHandler {
+func NewAPIHandler(identitySvc *identity.IdentityService, roomSvc *room.RoomService, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.LfgService, alertSvc *alert.AlertService, settingsSvc *settingsapp.Service, mailer email.Mailer, recaptchaSecret string, authTTL, renewTTL time.Duration) *APIHandler {
 	return &APIHandler{
 		identitySvc:     identitySvc,
 		roomSvc:         roomSvc,
@@ -49,6 +53,7 @@ func NewAPIHandler(identitySvc *identity.IdentityService, roomSvc *room.RoomServ
 		replaySvc:       replaySvc,
 		lfgSvc:          lfgSvc,
 		alertSvc:        alertSvc,
+		settingsSvc:     settingsSvc,
 		mailer:          mailer,
 		recaptchaSecret: recaptchaSecret,
 		authTTL:         authTTL,
@@ -57,7 +62,7 @@ func NewAPIHandler(identitySvc *identity.IdentityService, roomSvc *room.RoomServ
 }
 
 func NewAPIHandlerLegacy(identitySvc *identity.IdentityService, roomSvc *room.RoomService, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.LfgService, alertSvc *alert.AlertService) *APIHandler {
-	return NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, nil, "", 30*time.Minute, 90*24*time.Hour)
+	return NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, nil, nil, "", 30*time.Minute, 90*24*time.Hour)
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
@@ -469,10 +474,41 @@ func (h *APIHandler) CreateCustomCard(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		// fallback: parse Bearer token directly when Auth middleware wasn't applied
+		authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+		if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+			token := strings.TrimSpace(authHeader[len("bearer "):])
+			if uid, err := auth.ParseToken(token); err == nil && uid != "" {
+				userID = uid
+			}
+		}
+	}
+	if userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	pluginID := chi.URLParam(r, "pluginID")
 	if pluginID == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
+	}
+	isAdmin, err := h.identitySvc.IsAdmin(userID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !isAdmin {
+		allowed, err := h.pluginSvc.HasPluginAccess(userID, pluginID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
 	}
 	var req struct {
 		Name string `json:"name"`
@@ -697,13 +733,58 @@ func (h *APIHandler) PluginPermission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	requesterID := middleware.GetUserIDFromContext(r.Context())
+	if requesterID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	isAdmin, err := h.identitySvc.IsAdmin(requesterID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	if r.Method == http.MethodGet {
-		writeJSON(w, http.StatusOK, map[string]any{"plugin_id": pluginID, "user_id": userID, "allowed": false})
+		perm, err := h.pluginSvc.GetUserPluginPermission(pluginID, userID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, perm)
 		return
 	}
 
 	if r.Method == http.MethodPost || r.Method == http.MethodDelete {
-		writeJSON(w, http.StatusOK, map[string]any{"plugin_id": pluginID, "user_id": userID, "status": "ok"})
+		if !isAdmin {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+	}
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			Allowed bool `json:"allowed"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+		perm, err := h.pluginSvc.SetUserPluginPermission(pluginID, userID, req.Allowed)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, perm)
+		return
+	}
+
+	if r.Method == http.MethodDelete {
+		if err := h.pluginSvc.DeleteUserPluginPermission(pluginID, userID); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
@@ -757,6 +838,88 @@ func (h *APIHandler) PluginRepoUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"status": "plugin repo update request enqueued"})
+}
+
+func (h *APIHandler) GetSetting(w http.ResponseWriter, r *http.Request) {
+	if h.settingsSvc == nil {
+		writeError(w, http.StatusInternalServerError, "settings service unavailable")
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	requesterID := middleware.GetUserIDFromContext(r.Context())
+	if requesterID == "" {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	userID := chi.URLParam(r, "userID")
+	pluginID := chi.URLParam(r, "pluginID")
+	if userID == "" || pluginID == "" {
+		writeError(w, http.StatusBadRequest, "userID and pluginID required")
+		return
+	}
+	setting, err := h.settingsSvc.Get(userID, pluginID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, setting)
+}
+
+func (h *APIHandler) UpsertSetting(w http.ResponseWriter, r *http.Request) {
+	if h.settingsSvc == nil {
+		writeError(w, http.StatusInternalServerError, "settings service unavailable")
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	requesterID := middleware.GetUserIDFromContext(r.Context())
+	if requesterID == "" {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var req settings.Setting
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	setting, err := h.settingsSvc.Upsert(&req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, setting)
+}
+
+func (h *APIHandler) DeleteSetting(w http.ResponseWriter, r *http.Request) {
+	if h.settingsSvc == nil {
+		writeError(w, http.StatusInternalServerError, "settings service unavailable")
+		return
+	}
+	if r.Method != http.MethodDelete {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	requesterID := middleware.GetUserIDFromContext(r.Context())
+	if requesterID == "" {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	userID := chi.URLParam(r, "userID")
+	pluginID := chi.URLParam(r, "pluginID")
+	if userID == "" || pluginID == "" {
+		writeError(w, http.StatusBadRequest, "userID and pluginID required")
+		return
+	}
+	if err := h.settingsSvc.Delete(userID, pluginID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *APIHandler) AdminContact(w http.ResponseWriter, r *http.Request) {
@@ -1156,20 +1319,16 @@ func NewRouter(h *APIHandler) http.Handler {
 		r.Route("/plugins/{pluginID}", func(r chi.Router) {
 			r.Get("/", h.GetPlugin)
 			r.Get("/cards", h.ListCustomCards)
-			r.Post("/cards", h.CreateCustomCard)
+			r.With(middleware.Auth).Post("/cards", h.CreateCustomCard)
 		})
-
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth)
-			r.Route("/lfg", func(r chi.Router) {
-				r.Get("/", h.ListLfg)
-				r.Post("/", h.CreateLfg)
-				r.Delete("/", h.DeleteLfg)
-			})
-			r.Route("/alerts", func(r chi.Router) {
-				r.Get("/", h.ListAlerts)
-				r.Post("/", h.CreateAlert)
-			})
+		r.With(middleware.Auth).Route("/lfg", func(r chi.Router) {
+			r.Get("/", h.ListLfg)
+			r.Post("/", h.CreateLfg)
+			r.Delete("/", h.DeleteLfg)
+		})
+		r.With(middleware.Auth).Route("/alerts", func(r chi.Router) {
+			r.Get("/", h.ListAlerts)
+			r.Post("/", h.CreateAlert)
 		})
 	})
 
@@ -1184,7 +1343,7 @@ func NewRouter(h *APIHandler) http.Handler {
 		r.Route("/plugins/{pluginID}", func(r chi.Router) {
 			r.Get("/", h.GetPlugin)
 			r.Get("/cards", h.ListCustomCards)
-			r.Post("/cards", h.CreateCustomCard)
+			r.With(middleware.Auth).Post("/cards", h.CreateCustomCard)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -1192,47 +1351,57 @@ func NewRouter(h *APIHandler) http.Handler {
 			r.Get("/profile", h.GetProfile)
 			r.Post("/profile", h.UpdateProfile)
 			r.Delete("/profile", h.DeleteProfile)
-			r.Get("/admin_contact", h.AdminContact)
-			r.Post("/admin_contact", h.AdminContact)
-			r.Post("/admin/update_user_patreon", h.AdminUpdateUserPatreon)
 			r.Get("/users/all", h.ListUsers)
-			r.Route("/users/plugin_permission/{pluginID}", func(r chi.Router) {
-				r.Get("/{userID}", h.PluginPermission)
-				r.Post("/{userID}", h.PluginPermission)
-				r.Delete("/{userID}", h.PluginPermission)
-			})
-			r.Post("/admin_contact", h.AdminContact)
-			r.Post("/admin/update_user_patreon", h.AdminUpdateUserPatreon)
-			r.Post("/games", h.CreateGame)
+		})
 
-			r.Route("/decks", func(r chi.Router) {
-				r.Get("/", h.ListDecks)
-				r.Post("/", h.CreateDeck)
-				r.Route("/{deckID}", func(r chi.Router) {
-					r.Get("/", h.GetDeck)
-					r.Put("/", h.UpdateDeck)
-					r.Delete("/", h.DeleteDeck)
-				})
-			})
-			r.Get("/public_decks/{pluginID}", h.ListPublicDecks)
-			r.Route("/replays", func(r chi.Router) {
-				r.Get("/", h.ListReplays)
-				r.Post("/", h.CreateReplay)
-				r.Route("/{replayID}", func(r chi.Router) {
-					r.Get("/", h.GetReplay)
-					r.Delete("/", h.DeleteReplay)
-				})
-			})
-			r.Route("/lfg", func(r chi.Router) {
-				r.Get("/", h.ListLfg)
-				r.Post("/", h.CreateLfg)
-				r.Delete("/", h.DeleteLfg)
-			})
-			r.Route("/alerts", func(r chi.Router) {
-				r.Get("/", h.ListAlerts)
-				r.Post("/", h.CreateAlert)
+		r.Get("/admin_contact", h.AdminContact)
+		r.Post("/admin_contact", h.AdminContact)
+		r.Post("/admin/update_user_patreon", h.AdminUpdateUserPatreon)
+
+			r.With(middleware.Auth).Route("/users/plugin_permission/{pluginID}", func(r chi.Router) {
+			r.Get("/{userID}", h.PluginPermission)
+			r.Post("/{userID}", h.PluginPermission)
+			r.Delete("/{userID}", h.PluginPermission)
+		})
+
+		r.Post("/games", h.CreateGame)
+
+		r.With(middleware.Auth).Route("/settings", func(r chi.Router) {
+		r.Post("/", h.UpsertSetting)
+		r.Get("/{userID}/{pluginID}", h.GetSetting)
+		r.Delete("/{userID}/{pluginID}", h.DeleteSetting)
+	})
+
+		r.Route("/decks", func(r chi.Router) {
+			r.Get("/", h.ListDecks)
+			r.Post("/", h.CreateDeck)
+			r.Route("/{deckID}", func(r chi.Router) {
+				r.Get("/", h.GetDeck)
+				r.Put("/", h.UpdateDeck)
+				r.Delete("/", h.DeleteDeck)
 			})
 		})
+		r.Get("/public_decks/{pluginID}", h.ListPublicDecks)
+
+		r.Route("/replays", func(r chi.Router) {
+			r.Get("/", h.ListReplays)
+			r.Post("/", h.CreateReplay)
+			r.Route("/{replayID}", func(r chi.Router) {
+				r.Get("/", h.GetReplay)
+				r.Delete("/", h.DeleteReplay)
+			})
+		})
+
+		r.Route("/lfg", func(r chi.Router) {
+			r.Get("/", h.ListLfg)
+			r.Post("/", h.CreateLfg)
+			r.Delete("/", h.DeleteLfg)
+		})
+
+		r.Route("/alerts", func(r chi.Router) {
+			r.Get("/", h.ListAlerts)
+			r.Post("/", h.CreateAlert)
+	})
 	})
 
 	return r

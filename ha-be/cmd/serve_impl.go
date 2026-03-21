@@ -13,6 +13,7 @@ import (
 	"github.com/ldmonster/dragncards/ha-be/internal/application/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
+	settingsapp "github.com/ldmonster/dragncards/ha-be/internal/application/settings"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/alert"
 	deckDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/identity"
@@ -20,6 +21,7 @@ import (
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/plugin"
 	replayDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
+	settingsDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/settings"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/email"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/gamestate"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/persistence"
@@ -46,7 +48,7 @@ func RunServe(configPath string) error {
 	}
 
 	if db != nil {
-		if err := db.AutoMigrate(&identity.User{}, &room.Room{}, &room.RoomAction{}, &plugin.Plugin{}, &plugin.CustomCard{}, &lfg.LfgPost{}, &alert.Alert{}, &deckDomain.Deck{}, &replayDomain.Replay{}); err != nil {
+		if err := db.AutoMigrate(&identity.User{}, &room.Room{}, &room.RoomAction{}, &plugin.Plugin{}, &plugin.CustomCard{}, &plugin.UserPluginPermission{}, &lfg.LfgPost{}, &alert.Alert{}, &deckDomain.Deck{}, &replayDomain.Replay{}, &settingsDomain.Setting{}); err != nil {
 			logr.Error("auto migrate failed", "error", err)
 		}
 	}
@@ -58,6 +60,7 @@ func RunServe(configPath string) error {
 	var replayRepo replayDomain.ReplayRepository
 	var lfgRepo lfg.LfgRepository
 	var alertRepo alert.AlertRepository
+	var settingsRepo settingsDomain.SettingRepository
 
 	if db != nil {
 		userRepo = persistence.NewGormUserRepository(db)
@@ -67,6 +70,7 @@ func RunServe(configPath string) error {
 		replayRepo = persistence.NewGormReplayRepository(db)
 		lfgRepo = persistence.NewGormLfgRepository(db)
 		alertRepo = persistence.NewGormAlertRepository(db)
+		settingsRepo = persistence.NewGormSettingsRepository(db)
 	} else {
 		userRepo = persistence.NewInMemoryUserRepository()
 		roomRepo = persistence.NewInMemoryRoomRepository()
@@ -75,6 +79,7 @@ func RunServe(configPath string) error {
 		replayRepo = persistence.NewInMemoryReplayRepository()
 		lfgRepo = persistence.NewInMemoryLfgRepository()
 		alertRepo = persistence.NewInMemoryAlertRepository()
+		settingsRepo = persistence.NewInMemorySettingsRepository()
 	}
 
 	identitySvc := identity.NewService(userRepo)
@@ -116,7 +121,8 @@ func RunServe(configPath string) error {
 
 	mailer := email.NewSMTPMailer("no-reply@dragncards.com", cfg.Email.SMTPHost, cfg.Email.SMTPPort, cfg.Email.SMTPUsername, cfg.Email.SMTPPassword)
 	identitySvc.SetTokenTTL(time.Duration(cfg.Auth.AccessLifetime)*time.Minute, time.Duration(cfg.Auth.RefreshLifetime)*time.Hour)
-	apiHandler := httpapi.NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, mailer, cfg.Recaptcha.SecretKey, time.Duration(cfg.Auth.AccessLifetime)*time.Minute, time.Duration(cfg.Auth.RefreshLifetime)*time.Hour)
+	settingsSvc := settingsapp.NewService(settingsRepo)
+	apiHandler := httpapi.NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, settingsSvc, mailer, cfg.Recaptcha.SecretKey, time.Duration(cfg.Auth.AccessLifetime)*time.Minute, time.Duration(cfg.Auth.RefreshLifetime)*time.Hour)
 	mux := http.NewServeMux()
 	hub := wsapi.NewHub()
 	mux.Handle("/be/socket", wsapi.NewWSHandler(hub, roomSvc, lfgSvc, gameSvc, replaySvc))

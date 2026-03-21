@@ -15,12 +15,12 @@ Track REST domain endpoint implementation progress for Phase2.
 - [x] Endpoints: `GET /be/api/rooms`, `POST /be/api/rooms`
 
 #### Plugin (`internal/domain/plugin/`)
-- [x] `Plugin` + `CustomCard` GORM models
-- [x] `PluginRepository` interface with `Create`, `List`, `ListVisible`, `FindByID`, `CreateCustomCard`, `ListCustomCards`
+- [x] `Plugin` + `CustomCard` + `UserPluginPermission` GORM models
+- [x] `PluginRepository` interface with `Create`, `List`, `ListVisible`, `FindByID`, `CreateCustomCard`, `ListCustomCards`, `CreatePermission`, `GetPermission`, `DeletePermission`
 - [x] In-memory + GORM impls
-- [x] `PluginService` — `Create`, `List`, `ListVisible`, `CreateCustomCard`, `ListCustomCards`
-- [x] Endpoints: `GET /be/api/plugins`, `GET /be/api/plugins/visible`, `POST /be/api/plugins`, `GET/POST /be/api/plugins/{pluginID}/cards`
-- [x] Unit tests passing (`internal/domain/plugin/service_test.go`)
+- [x] `PluginService` — `Create`, `List`, `ListVisible`, `CreateCustomCard`, `ListCustomCards`, `GetUserPluginPermission`, `SetUserPluginPermission`, `DeleteUserPluginPermission`
+- [x] Endpoints: `GET /be/api/plugins`, `GET /be/api/plugins/visible`, `POST /be/api/plugins`, `GET/POST /be/api/plugins/{pluginID}/cards`, `GET/POST/DELETE /be/api/v1/users/plugin_permission/{pluginID}/{userID}`
+- [x] Unit tests passing (`main_test.go` extension)
 
 #### LFG (`internal/domain/lfg/`)
 - [x] `LfgPost` GORM model
@@ -38,6 +38,13 @@ Track REST domain endpoint implementation progress for Phase2.
 
 ### Router (`NewRouter` in `internal/interfaces/http/handler.go`)
 - [x] chi router with global CORS, RequestID, Logger, Recovery middleware
+
+### Settings (`internal/domain/settings/` + `internal/application/settings/`)
+- [x] `Setting` model with `card_alt`, `card_back_alt`, `background_alt`
+- [x] Settings repository interface + in-memory + GORM impls
+- [x] Settings service for get/upsert/list/delete
+- [x] Endpoints: `GET /be/api/v1/settings/{userID}/{pluginID}`, `POST /be/api/v1/settings`, `DELETE /be/api/v1/settings/{userID}/{pluginID}`
+- [x] `settings` exposed in legacy routes `/be/api/settings/...`
 - [x] Auth middleware applied to lfg + alerts via `r.Group`
 - [x] chi URL params used for `{pluginID}` sub-routes
 

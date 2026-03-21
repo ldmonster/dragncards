@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/plugin"
 )
@@ -83,4 +84,35 @@ func (r *GormPluginRepository) FindCustomCardByID(id string) (*plugin.CustomCard
 		return nil, err
 	}
 	return &card, nil
+}
+
+func (r *GormPluginRepository) CreatePermission(permission *plugin.UserPluginPermission) error {
+	if permission == nil || permission.PluginID == "" || permission.UserID == "" {
+		return errors.New("invalid permission")
+	}
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "plugin_id"}, {Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"allowed"}),
+	}).Create(permission).Error
+}
+
+func (r *GormPluginRepository) GetPermission(pluginID, userID string) (*plugin.UserPluginPermission, error) {
+	if pluginID == "" || userID == "" {
+		return nil, errors.New("permission lookup requires plugin_id and user_id")
+	}
+	var perm plugin.UserPluginPermission
+	if err := r.db.First(&perm, "plugin_id = ? AND user_id = ?", pluginID, userID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return &plugin.UserPluginPermission{PluginID: pluginID, UserID: userID, Allowed: false}, nil
+		}
+		return nil, err
+	}
+	return &perm, nil
+}
+
+func (r *GormPluginRepository) DeletePermission(pluginID, userID string) error {
+	if pluginID == "" || userID == "" {
+		return errors.New("permission delete requires plugin_id and user_id")
+	}
+	return r.db.Where("plugin_id = ? AND user_id = ?", pluginID, userID).Delete(&plugin.UserPluginPermission{}).Error
 }

@@ -64,3 +64,43 @@ func (s *PluginService) FindCustomCardByID(id string) (*CustomCard, error) {
 	}
 	return s.repo.FindCustomCardByID(id)
 }
+
+func (s *PluginService) SetUserPluginPermission(pluginID, userID string, allowed bool) (*UserPluginPermission, error) {
+	if pluginID == "" || userID == "" {
+		return nil, fmt.Errorf("plugin_id and user_id required")
+	}
+	_, err := s.repo.FindByID(pluginID)
+	if err != nil {
+		return nil, err
+	}
+	perm := &UserPluginPermission{ID: fmt.Sprintf("upp-%d", time.Now().UnixNano()), PluginID: pluginID, UserID: userID, Allowed: allowed}
+	if err := s.repo.CreatePermission(perm); err != nil {
+		return nil, err
+	}
+	return perm, nil
+}
+
+func (s *PluginService) GetUserPluginPermission(pluginID, userID string) (*UserPluginPermission, error) {
+	if pluginID == "" || userID == "" {
+		return nil, fmt.Errorf("plugin_id and user_id required")
+	}
+	return s.repo.GetPermission(pluginID, userID)
+}
+
+func (s *PluginService) HasPluginAccess(userID, pluginID string) (bool, error) {
+	if userID == "" || pluginID == "" {
+		return false, fmt.Errorf("user_id and plugin_id required")
+	}
+	perm, err := s.repo.GetPermission(pluginID, userID)
+	if err != nil {
+		return false, err
+	}
+	return perm != nil && perm.Allowed, nil
+}
+
+func (s *PluginService) DeleteUserPluginPermission(pluginID, userID string) error {
+	if pluginID == "" || userID == "" {
+		return fmt.Errorf("plugin_id and user_id required")
+	}
+	return s.repo.DeletePermission(pluginID, userID)
+}
