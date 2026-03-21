@@ -265,6 +265,45 @@ func TestEvaluateExpressionAdditionalDSL(t *testing.T) {
 	}
 }
 
+func TestEvaluateExpressionAliasAndErrorCases(t *testing.T) {
+	ctx := evaluate.NewEvalContext(game.NewGameUI("room-1"))
+
+	res, err := evaluate.EvaluateExpression(ctx, nil, []any{functions.IsInListFunctionName, []any{1, 2, 3}, 2})
+	if err != nil || res != true {
+		t.Fatalf("is_in_list failed: %v got %v", err, res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{functions.ContainsInListFunctionName, []any{"a", "b"}, "b"})
+	if err != nil || res != true {
+		t.Fatalf("contains_in_list alias failed: %v got %v", err, res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{functions.IsInStringFunctionName, "hello", "ell"})
+	if err != nil || res != true {
+		t.Fatalf("is_in_string alias failed: %v got %v", err, res)
+	}
+
+	res, err = evaluate.EvaluateExpression(ctx, nil, []any{functions.GetIndexFunctionName, []any{"a", "b"}, "b"})
+	if err != nil || res != 1 {
+		t.Fatalf("get_index alias failed: %v got %v", err, res)
+	}
+
+	_, err = evaluate.EvaluateExpression(ctx, nil, []any{functions.ModFunctionName, 1, 0})
+	if err == nil {
+		t.Fatalf("expected division by zero for mod 1 0")
+	}
+
+	_, err = evaluate.EvaluateExpression(ctx, nil, []any{functions.PowFunctionName, "x", 2})
+	if err == nil {
+		t.Fatalf("expected error for pow non-int base")
+	}
+
+	_, err = evaluate.EvaluateExpression(ctx, nil, []any{functions.FlattenFunctionName, 123})
+	if err == nil {
+		t.Fatalf("expected error for flatten non-list arg")
+	}
+}
+
 func TestEvaluateExpressionExtraOps(t *testing.T) {
 	ctx := evaluate.NewEvalContext(game.NewGameUI("room-1"))
 

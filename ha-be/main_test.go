@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -412,6 +413,30 @@ func TestRoomsAndPluginsEndpoints(t *testing.T) {
 	mux.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusInternalServerError {
 		t.Fatalf("expected 500 got %d", w.Result().StatusCode)
+	}
+
+	// valid plugin repo sync path
+	pluginServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"plugins":[{"id":"p-main-test","name":"MainSync","visible":true,"cards":[{"id":"cc-main","name":"MainCard","data":"{\"v\":1}"}]}]}`))
+	}))
+	defer pluginServer.Close()
+
+	goodBody := strings.NewReader(fmt.Sprintf(`{"repo_url":"%s"}`, pluginServer.URL))
+	req = httptest.NewRequest(http.MethodPost, "/be/api/plugin-repo-update", goodBody)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+	var out map[string]any
+	if err := json.NewDecoder(w.Result().Body).Decode(&out); err != nil {
+		t.Fatalf("decode repo update response: %v", err)
+	}
+	if out["count"] != float64(1) {
+		t.Fatalf("expected count 1 got %v", out["count"])
 	}
 
 	// register + login user for protected endpoints

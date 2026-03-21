@@ -72,7 +72,7 @@ compare progress files with implementation. No new features - only evaluation of
 - [x] `game_states` table created via `pgStore.AutoMigrate()` in `cmd/serve_impl.go`.
 - [x] Redis client initialised in `cmd/serve_impl.go` when `cfg.Redis.URL` is non-empty.
 - [x] Confirmed fix for replay on reconnect in `GameService.CreateGame`.
-- [ ] Phase 5 plugin extension work still pending.
+- [x] Phase 5 plugin extension work implemented (real repo sync + CLI update command).
 
 ## Outcome
 - [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-21).

@@ -40,4 +40,4 @@ Track core game engine DSL evaluation and room game loop implementation.
 - [x] DB-backed game state store (Redis when REDIS_URL present; Postgres JSON otherwise)
 - [x] Wire `GameService` into `WSHandler` room channel so `game_action` events drive the evaluator
 - [x] Goroutine-per-room game loop with action replay on reconnect
-- [ ] Phase 5: plugin extensibility and custom card DB integration
+- [x] Phase 5: plugin extensibility and custom card DB integration

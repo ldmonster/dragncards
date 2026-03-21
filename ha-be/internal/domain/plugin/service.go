@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -110,11 +109,11 @@ func (s *PluginService) DeleteUserPluginPermission(pluginID, userID string) erro
 }
 
 type SyncPluginRepoPayload struct {
-	ID      string         `json:"id"`
-	Name    string         `json:"name"`
-	Visible bool           `json:"visible"`
-	RepoURL string         `json:"repo_url"`
-	Cards   []CustomCard   `json:"cards"`
+	ID      string       `json:"id"`
+	Name    string       `json:"name"`
+	Visible bool         `json:"visible"`
+	RepoURL string       `json:"repo_url"`
+	Cards   []CustomCard `json:"cards"`
 }
 
 type remotePluginDocument struct {
