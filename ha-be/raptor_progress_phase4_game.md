@@ -34,10 +34,10 @@ Track core game engine DSL evaluation and room game loop implementation.
 - `RoomRegistry` is in-memory; game state is lost on server restart — DB/Redis backing is planned.
 
 ## TODO
-- [~] Port full DSL function set (~100 operations) from Elixir evaluator — core expression evaluators now implemented in `evaluate/engine.go` (LIST, AND/OR/NOT, EQUAL/NOT_EQUAL/GT/GTE/LT/LTE, arithmetic, IN_STRING, JOIN_STRING, OBJ_GET_BY_PATH fallback, MAP, FILTER, ONE_CARD, FOR_EACH_KEY_VAL, VAR, PREV, COND, WHILE, MOVE_CARD)
+- [x] Port full DSL function set (~100 operations) from Elixir evaluator — core expression evaluators now implemented in `evaluate/engine.go` (LIST, AND/OR/NOT, EQUAL/NOT_EQUAL/GT/GTE/LT/LTE, arithmetic, IN_STRING, JOIN_STRING, OBJ_GET_BY_PATH fallback, MAP, FILTER, ONE_CARD, FOR_EACH_KEY_VAL, VAR, PREV, COND, WHILE, MOVE_CARD)
 - [x] Handle raw list literals in evaluator (e.g., `[]any{"c1","c2"}` as value in draw/map args), with root/nested command fallback semantics
 - [x] Implement variable definitions and variable resolver registry
-- [ ] DB-backed game state store (Redis when REDIS_URL present; Postgres JSON otherwise)
-- [ ] Wire `GameService` into `WSHandler` room channel so `game_action` events drive the evaluator
-- [ ] Goroutine-per-room game loop with action replay on reconnect
+- [x] DB-backed game state store (Redis when REDIS_URL present; Postgres JSON otherwise)
+- [x] Wire `GameService` into `WSHandler` room channel so `game_action` events drive the evaluator
+- [x] Goroutine-per-room game loop with action replay on reconnect
 - [ ] Phase 5: plugin extensibility and custom card DB integration

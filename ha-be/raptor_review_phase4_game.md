@@ -52,8 +52,8 @@ compare progress files with implementation. No new features - only evaluation of
 
 ## Findings vs Plan
 
-- WARN ~95 of the ~100 planned DSL functions are not yet implemented. Only `noop` + 4 arithmetic builtins are registered. The evaluator framework is solid and open/closed for addition, but the actual game logic cannot run without the remaining functions. Progress file tracks this as current in-progress TODO.
-- OK `infrastructure/gamestate/` is now fully wired in `main.go`: if `cfg.Redis.URL` is set, a Redis client is initialised and `NewRedisGameStateStore` is used; otherwise `NewPostgresGameStateStore` is used; in-memory fallback when neither DB nor Redis is available. Fixed as of 2026-03-20.
+- OK full DSL function set now implemented and registered via `functions.RegisterBuiltins` (including advanced and control ops: `one_card`, `for_each_key_val`, `var`, `prev`, `cond`, `while`, `move_card`, etc.).
+- OK `infrastructure/gamestate/` is now fully wired in `main.go`: if `cfg.Redis.URL` is set, a Redis client is initialised and `NewRedisGameStateStore` is used; otherwise `NewPostgresGameStateStore` is used; in-memory fallback when neither DB nor Redis is available.
 - OK `game_states` table is created by `pgStore.AutoMigrate()` called in `main.go` (line 107) whenever a Postgres store is selected. Fixed as of 2026-03-20.
 
 ## TODO
@@ -67,5 +67,10 @@ compare progress files with implementation. No new features - only evaluation of
 - [x] Review file updated with accurate current implementation state (re-reviewed 2026-03-20).
 - [x] Previously reported false gaps resolved: card/stack/group/player_info models exist; GameUI has all maps; EvalContext has typed accessors; variable.go is standalone; GameFunction and GameVariable use *EvalContext; gamestate stores all exist; ctx.Done() and Close() present; AppendAction errors logged.
 - [x] Stale TODOs resolved: stateStore selection logic wired; game_states AutoMigrate wired; Redis client init wired — all three fixed in main.go.
+- [x] GameService now supports replaying historical room actions to restore game state when a room goroutine is recreated (no snapshot store required).
 - [x] Review points tracked with check marks.
 - [x] No new features suggested; findings are gaps vs the existing plan.
+
+## TODO
+- [x] Confirmed fix for replay on reconnect in GameService.CreateGame
+- [ ] Phase 5 plugin extension work still pending

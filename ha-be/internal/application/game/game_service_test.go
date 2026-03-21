@@ -97,3 +97,38 @@ func TestGameServiceEvaluateActionList(t *testing.T) {
 		t.Fatalf("expected 1 action, got %d", len(roomActions))
 	}
 }
+
+func TestGameServiceCreateGameReplaysActionsFromRoomStore(t *testing.T) {
+	roomRepo := persistence.NewInMemoryRoomRepository()
+	roomSvc := room.NewService(roomRepo)
+	registry := NewRoomRegistry()
+	gameSvc := NewGameService(roomSvc, registry, nil)
+
+	ctx := context.Background()
+	gameUI, err := gameSvc.CreateGame(ctx, "replay-test", "owner-1")
+	if err != nil {
+		t.Fatalf("CreateGame failed: %v", err)
+	}
+
+	payload := []byte(`{"action":"set_game","options":{"game":{"slug":"replay-test","players":["player1"]}}}`)
+	if err := gameSvc.SendAction(gameUI.Slug, payload); err != nil {
+		t.Fatalf("SendAction failed: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Simulate new server instance with empty room registry and no state store.
+	registry2 := NewRoomRegistry()
+	gameSvc2 := NewGameService(roomSvc, registry2, nil)
+	gameUI2, err := gameSvc2.CreateGame(ctx, gameUI.Slug, "owner-1")
+	if err != nil {
+		t.Fatalf("CreateGame (reconnect) failed: %v", err)
+	}
+
+	if len(gameUI2.Actions) != 1 {
+		t.Fatalf("expected replayed actions length 1, got %d", len(gameUI2.Actions))
+	}
+	if len(gameUI2.Players) != 1 || gameUI2.Players[0] != "player1" {
+		t.Fatalf("expected replayed player1 in game state, got %+v", gameUI2.Players)
+	}
+}

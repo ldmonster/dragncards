@@ -46,21 +46,39 @@ func (s *GameService) CreateGame(ctx context.Context, slug, ownerID string) (*do
 		return nil, errors.New("slug and owner required")
 	}
 
-	// Create or fetch the room record.
-	roomObj, err := s.roomService.Create(slug, ownerID)
+	// Get existing room by slug or create a new one.
+	roomObj, err := s.roomService.FindBySlug(slug)
 	if err != nil {
-		return nil, err
+		roomObj, err = s.roomService.Create(slug, ownerID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Attempt to restore persisted state; fall back to fresh state.
+	// Attempt to restore persisted state; fall back to fresh state and action replay.
 	var gameUI *domaingame.GameUI
 	if s.stateStore != nil {
-		if loaded, loadErr := s.stateStore.Load(ctx, slug); loadErr == nil && loaded != nil {
+		if loaded, loadErr := s.stateStore.Load(ctx, roomObj.Slug); loadErr == nil && loaded != nil {
 			gameUI = loaded
 		}
 	}
 	if gameUI == nil {
 		gameUI = domaingame.NewGameUI(roomObj.Slug)
+
+		// If no snapshot exists, rebuild game state by replaying historical actions.
+		actions, err := s.roomService.ListActions(roomObj.Slug)
+		if err == nil && len(actions) > 0 {
+			fauxRoom := &GameRoom{Slug: roomObj.Slug, State: gameUI}
+			for _, action := range actions {
+				if err := s.applyGameAction(fauxRoom, action); err != nil {
+					s.log.Error("game_service: failed to replay action", "slug", roomObj.Slug, "error", err)
+					continue
+				}
+				// applyGameAction may replace the whole state (e.g. set_game), so sync to gameUI.
+				gameUI = fauxRoom.State
+				gameUI.AddAction(action)
+			}
+		}
 	}
 
 	rs := &GameRoom{
