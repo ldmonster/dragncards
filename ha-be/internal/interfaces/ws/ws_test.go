@@ -583,3 +583,51 @@ func TestWSHandlerPostOfflineResetGameBroadcast(t *testing.T) {
 	broadcast := drainUntil(t, ctx, c1, "reset_game")
 	_ = broadcast
 }
+
+func TestWSHandlerServeHTTP_NoToken(t *testing.T) {
+	hub := NewHub()
+	handler := NewWSHandler(hub, nil, nil, nil, nil)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	res, err := http.Get(server.URL + "/be/socket")
+	if err != nil {
+		t.Fatalf("http get failed: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", res.StatusCode)
+	}
+	var msg map[string]string
+	if err := json.NewDecoder(res.Body).Decode(&msg); err != nil {
+		t.Fatalf("decode body failed: %v", err)
+	}
+	if msg["error"] != "token required" {
+		t.Fatalf("expected token required error, got %q", msg["error"])
+	}
+}
+
+func TestWSHandlerServeHTTP_InvalidToken(t *testing.T) {
+	hub := NewHub()
+	handler := NewWSHandler(hub, nil, nil, nil, nil)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	res, err := http.Get(server.URL + "/be/socket?token=invalid-token")
+	if err != nil {
+		t.Fatalf("http get failed: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", res.StatusCode)
+	}
+	var msg map[string]string
+	if err := json.NewDecoder(res.Body).Decode(&msg); err != nil {
+		t.Fatalf("decode body failed: %v", err)
+	}
+	if msg["error"] != "invalid token" {
+		t.Fatalf("expected invalid token error, got %q", msg["error"])
+	}
+}

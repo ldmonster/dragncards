@@ -46,7 +46,7 @@ func RunServe(configPath string) error {
 	}
 
 	if db != nil {
-		if err := db.AutoMigrate(&identity.User{}, &room.Room{}, &room.RoomAction{}, &plugin.Plugin{}, &plugin.CustomCard{}, &lfg.LfgPost{}, &alert.Alert{}); err != nil {
+		if err := db.AutoMigrate(&identity.User{}, &room.Room{}, &room.RoomAction{}, &plugin.Plugin{}, &plugin.CustomCard{}, &lfg.LfgPost{}, &alert.Alert{}, &deckDomain.Deck{}, &replayDomain.Replay{}); err != nil {
 			logr.Error("auto migrate failed", "error", err)
 		}
 	}

@@ -345,6 +345,66 @@ func TestRoomsAndPluginsEndpoints(t *testing.T) {
 	if len(visible) != 1 {
 		t.Fatalf("expected 1 visible plugin got %d", len(visible))
 	}
+
+	// visible by userID path
+	req = httptest.NewRequest(http.MethodGet, "/be/api/plugins/visible/u-1", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+	var byUser struct {
+		UserID  string          `json:"user_id"`
+		Plugins []plugin.Plugin `json:"plugins"`
+	}
+	if err := json.NewDecoder(w.Result().Body).Decode(&byUser); err != nil {
+		t.Fatalf("decode visible by user: %v", err)
+	}
+	if byUser.UserID != "u-1" || len(byUser.Plugins) != 1 {
+		t.Fatalf("expected one plugin for user u-1, got %v", byUser)
+	}
+
+	// visible by pluginID and userID path
+	req = httptest.NewRequest(http.MethodGet, "/be/api/plugins/visible/"+plugins[0].ID+"/u-1", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+	var byPlugin struct {
+		UserID string        `json:"user_id"`
+		Plugin plugin.Plugin `json:"plugin"`
+	}
+	if err := json.NewDecoder(w.Result().Body).Decode(&byPlugin); err != nil {
+		t.Fatalf("decode visible by plugin+user: %v", err)
+	}
+	if byPlugin.UserID != "u-1" || byPlugin.Plugin.ID != plugins[0].ID {
+		t.Fatalf("unexpected response: %v", byPlugin)
+	}
+
+	// plugin repo update endpoint
+	req = httptest.NewRequest(http.MethodPost, "/be/api/plugin-repo-update", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected 202 got %d", w.Result().StatusCode)
+	}
+
+	// admin contact through legacy /be/api (no auth requirement)
+	req = httptest.NewRequest(http.MethodGet, "/be/api/admin_contact", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Result().StatusCode)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/be/api/admin_contact", strings.NewReader(`{"email":"foo@x.com","message":"hi"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected 202 got %d", w.Result().StatusCode)
+	}
 }
 
 func TestLfgAndAlertsRequireAuth(t *testing.T) {

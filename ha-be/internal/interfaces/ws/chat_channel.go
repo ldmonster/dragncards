@@ -12,7 +12,7 @@ func IsChatTopic(topic string) bool {
 func HandleChatChannel(h *Hub, clientID string, env PhoenixEnvelope) (*PhoenixEnvelope, error) {
 	switch env.Event {
 	case "phx_join":
-		h.Subscribe(env.Topic, clientID, h.clients[clientID])
+		h.Subscribe(env.Topic, clientID, h.Client(clientID))
 		return &PhoenixEnvelope{Topic: env.Topic, Event: "phx_reply", Payload: json.RawMessage(`{"status":"ok"}`), Ref: env.Ref}, nil
 	case "new_msg":
 		broadcast := PhoenixEnvelope{Topic: env.Topic, Event: "new_msg", Payload: env.Payload}

@@ -12,6 +12,31 @@ type GameRoom struct {
 	State *domaingame.GameUI
 	In    chan []byte
 	done  chan struct{} // closed by Close() to signal the run goroutine to stop
+	mu    sync.RWMutex
+}
+
+func (r *GameRoom) getState() *domaingame.GameUI {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.State == nil {
+		return nil
+	}
+	return r.State.Clone()
+}
+
+func (r *GameRoom) setState(state *domaingame.GameUI) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.State = state
+}
+
+func (r *GameRoom) mutateState(fn func(gameUI *domaingame.GameUI)) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.State == nil {
+		return
+	}
+	fn(r.State)
 }
 
 // Close signals the room goroutine to stop and closes the inbox channel.

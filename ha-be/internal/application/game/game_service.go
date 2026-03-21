@@ -90,6 +90,8 @@ func (s *GameService) run(ctx context.Context, gameRoom *GameRoom) {
 			if !ok {
 				return
 			}
+
+			gameRoom.mu.Lock()
 			gameRoom.State.AddAction(payload)
 
 			if err := s.applyGameAction(gameRoom, payload); err != nil {
@@ -113,6 +115,7 @@ func (s *GameService) run(ctx context.Context, gameRoom *GameRoom) {
 						"error", err)
 				}
 			}
+			gameRoom.mu.Unlock()
 		}
 	}
 }
@@ -222,9 +225,15 @@ func (s *GameService) SetSeat(slug, playerID, seat string) error {
 	if room == nil {
 		return errors.New("room not found")
 	}
+	room.mu.Lock()
 	room.State.SetSeat(playerID, seat)
+	room.mu.Unlock()
+
 	if s.stateStore != nil {
-		if err := s.stateStore.Save(context.Background(), slug, room.State); err != nil {
+		room.mu.RLock()
+		state := room.State
+		room.mu.RUnlock()
+		if err := s.stateStore.Save(context.Background(), slug, state); err != nil {
 			s.log.Error("game_service: failed to save state after set_seat",
 				"slug", slug, "error", err)
 		}
@@ -237,9 +246,15 @@ func (s *GameService) SetSpectator(slug, playerID string, spectator bool) error 
 	if room == nil {
 		return errors.New("room not found")
 	}
+	room.mu.Lock()
 	room.State.SetSpectator(playerID, spectator)
+	room.mu.Unlock()
+
 	if s.stateStore != nil {
-		if err := s.stateStore.Save(context.Background(), slug, room.State); err != nil {
+		room.mu.RLock()
+		state := room.State
+		room.mu.RUnlock()
+		if err := s.stateStore.Save(context.Background(), slug, state); err != nil {
 			s.log.Error("game_service: failed to save state after set_spectator",
 				"slug", slug, "error", err)
 		}
@@ -253,7 +268,7 @@ func (s *GameService) GetGameUI(slug string) (*domaingame.GameUI, error) {
 	if room == nil {
 		return nil, errors.New("room not found")
 	}
-	return room.State, nil
+	return room.getState(), nil
 }
 
 // ResetGame clears the action log for a room.
@@ -262,11 +277,17 @@ func (s *GameService) ResetGame(ctx context.Context, slug string) error {
 	if room == nil {
 		return errors.New("room not found")
 	}
+	room.mu.Lock()
 	room.State.ResetActions()
 	room.State.ResetSeats()
 	room.State.ResetSpectators()
+	room.mu.Unlock()
+
 	if s.stateStore != nil {
-		if err := s.stateStore.Save(ctx, slug, room.State); err != nil {
+		room.mu.RLock()
+		state := room.State
+		room.mu.RUnlock()
+		if err := s.stateStore.Save(ctx, slug, state); err != nil {
 			s.log.Error("game_service: failed to save state after reset",
 				"slug", slug, "error", err)
 		}

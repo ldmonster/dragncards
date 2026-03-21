@@ -68,7 +68,7 @@ func (w *WSHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			clientID = "anon-" + time.Now().Format("20060102150405.000000000")
 		}
 
-		if _, exists := w.hub.clients[clientID]; exists {
+		if w.hub.HasClient(clientID) {
 			clientID = clientID + "-" + time.Now().Format("20060102150405.000000000")
 		}
 

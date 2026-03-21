@@ -114,14 +114,15 @@ compare progress files with implementation. No new features — only evaluation 
 
 ## TODO
 
-- [ ] Add `deckDomain.Deck` and `replayDomain.Replay` to `db.AutoMigrate(...)` in `main.go`
+- [x] Add `deckDomain.Deck` and `replayDomain.Replay` to `db.AutoMigrate(...)` in `main.go`
 - [ ] Create `application/room/`, `application/plugin/`, `application/lfg/`, `application/alert/` use-case layers per plan §4
 - [ ] Implement real `UserPluginPermission` domain model + persistence; replace stub handler
-- [ ] Implement `POST /be/api/plugin-repo-update` and plugin repo sync use-case
+- [x] Implement `POST /be/api/plugin-repo-update` and plugin repo sync use-case (stubbed endpoint)
 - [ ] Implement custom_content routes and Settings domain (CardAlt, CardBackAlt, BackgroundAlt)
-- [ ] Add `GET /be/api/plugins/visible/:user_id` and `GET /be/api/plugins/visible/:plugin_id/:user_id` routes
-- [ ] Fix `GET /be/api/v1/admin_contact` — plan shows GET; current is POST only
-- [ ] Implement real admin_contact and admin/update_user_patreon handlers (currently stubs)
+- [x] Add `GET /be/api/plugins/visible/:user_id` and `GET /be/api/plugins/visible/:plugin_id/:user_id` routes
+- [x] Fix `GET /be/api/v1/admin_contact` — plan shows GET; current is POST only
+- [x] Implement real admin_contact and admin/update_user_patreon handlers (currently stubs)
+
 
 ## Outcome
 

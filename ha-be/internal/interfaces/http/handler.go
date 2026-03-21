@@ -710,9 +710,63 @@ func (h *APIHandler) PluginPermission(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
-func (h *APIHandler) AdminContact(w http.ResponseWriter, r *http.Request) {
+func (h *APIHandler) ListVisiblePluginsByUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	userID := chi.URLParam(r, "userID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "userID is required")
+		return
+	}
+	plugins, err := h.pluginSvc.ListVisible()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user_id": userID, "plugins": plugins})
+}
+
+func (h *APIHandler) ListVisiblePluginByIDAndUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	pluginID := chi.URLParam(r, "pluginID")
+	userID := chi.URLParam(r, "userID")
+	if pluginID == "" || userID == "" {
+		writeError(w, http.StatusBadRequest, "pluginID and userID are required")
+		return
+	}
+	pluginObj, err := h.pluginSvc.FindByID(pluginID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "plugin not found")
+		return
+	}
+	if !pluginObj.Visible {
+		writeError(w, http.StatusForbidden, "plugin not visible")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user_id": userID, "plugin": pluginObj})
+}
+
+func (h *APIHandler) PluginRepoUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{"status": "plugin repo update request enqueued"})
+}
+
+func (h *APIHandler) AdminContact(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if r.Method == http.MethodGet {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "ready", "message": "admin contact endpoint"})
 		return
 	}
 
@@ -1092,7 +1146,12 @@ func NewRouter(h *APIHandler) http.Handler {
 		// Old legacy routes remain for compatibility
 		r.Handle("/rooms", roomsRouter(h))
 		r.Handle("/plugins", pluginsRouter(h))
-		r.Handle("/plugins/visible", pluginsRouter(h))
+		r.Get("/plugins/visible", h.ListVisiblePlugins)
+		r.Get("/plugins/visible/{userID}", h.ListVisiblePluginsByUser)
+		r.Get("/plugins/visible/{pluginID}/{userID}", h.ListVisiblePluginByIDAndUser)
+		r.Post("/plugin-repo-update", h.PluginRepoUpdate)
+		r.Get("/admin_contact", h.AdminContact)
+		r.Post("/admin_contact", h.AdminContact)
 		r.Post("/plugins", h.CreatePlugin)
 		r.Route("/plugins/{pluginID}", func(r chi.Router) {
 			r.Get("/", h.GetPlugin)
@@ -1117,7 +1176,10 @@ func NewRouter(h *APIHandler) http.Handler {
 	r.Route("/be/api/v1", func(r chi.Router) {
 		r.Handle("/rooms", roomsRouter(h))
 		r.Handle("/plugins", pluginsRouter(h))
-		r.Handle("/plugins/visible", pluginsRouter(h))
+		r.Get("/plugins/visible", h.ListVisiblePlugins)
+		r.Get("/plugins/visible/{userID}", h.ListVisiblePluginsByUser)
+		r.Get("/plugins/visible/{pluginID}/{userID}", h.ListVisiblePluginByIDAndUser)
+		r.Post("/plugin-repo-update", h.PluginRepoUpdate)
 		r.Post("/plugins", h.CreatePlugin)
 		r.Route("/plugins/{pluginID}", func(r chi.Router) {
 			r.Get("/", h.GetPlugin)
@@ -1130,6 +1192,9 @@ func NewRouter(h *APIHandler) http.Handler {
 			r.Get("/profile", h.GetProfile)
 			r.Post("/profile", h.UpdateProfile)
 			r.Delete("/profile", h.DeleteProfile)
+			r.Get("/admin_contact", h.AdminContact)
+			r.Post("/admin_contact", h.AdminContact)
+			r.Post("/admin/update_user_patreon", h.AdminUpdateUserPatreon)
 			r.Get("/users/all", h.ListUsers)
 			r.Route("/users/plugin_permission/{pluginID}", func(r chi.Router) {
 				r.Get("/{userID}", h.PluginPermission)

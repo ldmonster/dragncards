@@ -44,8 +44,7 @@ Track REST domain endpoint implementation progress for Phase2.
 ### Persistence
 - [x] All five domains have both in-memory and GORM-backed implementations
 - [x] `main.go` selects GORM (PostgreSQL) when DB connects; falls back to in-memory
-- [x] `db.AutoMigrate` covers `identity.User`, `room.Room`, `room.RoomAction`, `plugin.Plugin`, `plugin.CustomCard`
-- [ ] `lfg.LfgPost`, `alert.Alert` not yet in AutoMigrate list
+- [x] `db.AutoMigrate` covers `identity.User`, `room.Room`, `room.RoomAction`, `plugin.Plugin`, `plugin.CustomCard`, `lfg.LfgPost`, `alert.Alert`, `deck.Deck`, `replay.Replay`
 
 ### Health
 - [x] `GET /be/health` — returns `{"status":"ok"}`

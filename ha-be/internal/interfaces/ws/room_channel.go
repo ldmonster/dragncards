@@ -36,7 +36,7 @@ func HandleRoomChannel(h *Hub, svc *room.RoomService, gameSvc *game.GameService,
 
 	switch env.Event {
 	case "phx_join":
-		h.Subscribe(env.Topic, clientID, h.clients[clientID])
+		h.Subscribe(env.Topic, clientID, h.Client(clientID))
 		reply := &PhoenixEnvelope{Topic: env.Topic, Event: "phx_reply", Payload: json.RawMessage(`{"status":"ok"}`), Ref: env.Ref}
 		if sendReply(reply) {
 			// send current state only to the joining peer (on live WS path)

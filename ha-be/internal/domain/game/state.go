@@ -1,5 +1,7 @@
 package game
 
+import "encoding/json"
+
 // GameUI is the aggregate root for a running game session.
 // It holds all runtime state: players, card entities, layout groups/stacks,
 // and the append-only action log used for replay.
@@ -191,4 +193,20 @@ func (g *GameUI) GetCard(cardID string) *Card {
 		return nil
 	}
 	return g.Cards[cardID]
+}
+
+// Clone returns a deep copy of GameUI.
+func (g *GameUI) Clone() *GameUI {
+	if g == nil {
+		return nil
+	}
+	b, err := json.Marshal(g)
+	if err != nil {
+		return nil
+	}
+	var copy GameUI
+	if err := json.Unmarshal(b, &copy); err != nil {
+		return nil
+	}
+	return &copy
 }

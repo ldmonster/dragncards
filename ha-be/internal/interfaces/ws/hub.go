@@ -72,6 +72,19 @@ func (h *Hub) Broadcast(msg []byte) {
 	}
 }
 
+func (h *Hub) Client(id string) *Conn {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.clients[id]
+}
+
+func (h *Hub) HasClient(id string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	_, ok := h.clients[id]
+	return ok
+}
+
 // TopicSubscribers returns a snapshot of client IDs currently subscribed to a topic.
 func (h *Hub) TopicSubscribers(topic string) []string {
 	h.mu.RLock()
