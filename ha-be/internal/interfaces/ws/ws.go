@@ -1,3 +1,4 @@
+//nolint:staticcheck
 package ws
 
 import (
@@ -7,13 +8,16 @@ import (
 	"strings"
 	"time"
 
+	//nolint:staticcheck
+	"nhooyr.io/websocket"
+	//nolint:staticcheck
+	"nhooyr.io/websocket/wsjson"
+
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/lfg"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/room"
 	"github.com/ldmonster/dragncards/ha-be/internal/platform/auth"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 )
 
 type WSHandler struct {
@@ -98,7 +102,6 @@ func (w *WSHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 				}
 			}
 		}
-		return
 	}
 
 	if req.Method == http.MethodPost {

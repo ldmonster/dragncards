@@ -9,9 +9,9 @@ import (
 // PluginCardFunction retrieves a plugin card by plugin and card id from context.
 type PluginCardFunction struct{}
 
-func (*PluginCardFunction) Name() string { return "plugin_card" }
+func (*PluginCardFunction) Name() string { return PluginCardFunctionName }
 func (*PluginCardFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
-	if err := requireArgCount("plugin_card", args, 2); err != nil {
+	if err := requireArgCount(PluginCardFunctionName, args, 2); err != nil {
 		return nil, err
 	}
 	pluginID, ok := args[0].(string)

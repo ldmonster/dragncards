@@ -7,6 +7,14 @@ import (
 	"strings"
 
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/game"
+	"github.com/ldmonster/dragncards/ha-be/internal/domain/game/evaluate/functions"
+)
+
+const (
+	GamePathLiteral       = "$GAME"
+	ActiveCardPathLiteral = "$ACTIVE_CARD"
+	GamePathPrefix        = "$GAME."
+	CardPathPrefix        = "$CARD."
 )
 
 func EvaluateExpression(ctx *game.EvalContext, card *game.Card, expr any) (any, error) {
@@ -15,6 +23,10 @@ func EvaluateExpression(ctx *game.EvalContext, card *game.Card, expr any) (any, 
 			return EvaluateExpression(ctx, card, expr)
 		}
 	}
+	return evaluateExpression(ctx, card, expr, true)
+}
+
+func evaluateExpression(ctx *game.EvalContext, card *game.Card, expr any, isRoot bool) (any, error) {
 	// Handle primitive values and variable references.
 	switch v := expr.(type) {
 	case nil:
@@ -27,13 +39,13 @@ func EvaluateExpression(ctx *game.EvalContext, card *game.Card, expr any) (any, 
 		}
 		return v, nil
 	case []any:
-		return evaluateArray(ctx, card, v)
+		return evaluateArray(ctx, card, v, isRoot)
 	default:
 		return v, nil
 	}
 }
 
-func evaluateArray(ctx *game.EvalContext, card *game.Card, code []any) (any, error) {
+func evaluateArray(ctx *game.EvalContext, card *game.Card, code []any, isRoot bool) (any, error) {
 	if len(code) == 0 {
 		return nil, nil
 	}
@@ -46,7 +58,7 @@ func evaluateArray(ctx *game.EvalContext, card *game.Card, code []any) (any, err
 			if !ok {
 				return nil, errors.New("invalid nested code block")
 			}
-			v, err := evaluateArray(ctx, card, barr)
+			v, err := evaluateArray(ctx, card, barr, false)
 			if err != nil {
 				return nil, err
 			}
@@ -55,77 +67,114 @@ func evaluateArray(ctx *game.EvalContext, card *game.Card, code []any) (any, err
 		return last, nil
 	}
 
-	// Operation dispatch.
-	cmdRaw := code[0]
-	cmd, ok := cmdRaw.(string)
-	if !ok {
+	// array literal (non-command) should be treated as a data list.
+	switch first := code[0].(type) {
+	case string:
+		cmd := strings.ToLower(first)
+		if !GetDefaultEvaluator().HasFunction(cmd) {
+			if isRoot {
+				return nil, errors.New("function not found")
+			}
+			// fallback to array literal for nested unknown-first-string arrays
+			results := make([]any, len(code))
+			for i, part := range code {
+				v, err := evaluateExpression(ctx, card, part, false)
+				if err != nil {
+					return nil, err
+				}
+				results[i] = v
+			}
+			return results, nil
+		}
+		// command dispatch.
+		// Convert operands, except for raw-expression DSL callbacks.
+		args := make([]any, 0, len(code)-1)
+		for idx, part := range code[1:] {
+			isRaw := false
+			switch cmd {
+			case functions.MapFunctionName, functions.FilterFunctionName, functions.OneCardFunctionName, functions.ObjGetByPathFunctionName, functions.ObjGetValFunctionName, functions.ObjSetByPathFunctionName, functions.EveryFunctionName:
+				if idx == 1 {
+					isRaw = true
+				}
+			case functions.ReduceFunctionName:
+				if idx == 2 {
+					isRaw = true
+				}
+			case functions.ForEachKeyValFunctionName:
+				if idx == 3 {
+					isRaw = true
+				}
+			case functions.VarFunctionName:
+				if idx == 1 {
+					isRaw = true
+				}
+			case functions.CondFunctionName, functions.WhileFunctionName:
+				isRaw = true
+			}
+
+			if isRaw {
+				args = append(args, part)
+				continue
+			}
+
+			arg, err := evaluateExpression(ctx, card, part, false)
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, arg)
+		}
+
+		// Dispatch to registered function implementations.
+		res, err := GetDefaultEvaluator().EvalFunction(cmd, ctx, args)
+		if err != nil {
+			return nil, NewEvalError(err)
+		}
+		ctx.Prev = res
+		return res, nil
+	case map[string]any:
+		results := make([]any, len(code))
+		for i, part := range code {
+			v, err := evaluateExpression(ctx, card, part, false)
+			if err != nil {
+				return nil, err
+			}
+			results[i] = v
+		}
+		return results, nil
+	default:
+		if !isRoot {
+			// treat as array literal, evaluating each element (non-command list)
+			results := make([]any, len(code))
+			for i, part := range code {
+				v, err := evaluateExpression(ctx, card, part, false)
+				if err != nil {
+					return nil, err
+				}
+				results[i] = v
+			}
+			return results, nil
+		}
 		return nil, errors.New("first element of expression must be a command string")
 	}
-	cmd = strings.ToLower(cmd)
-
-	// Convert operands, except for raw-expression DSL callbacks.
-	args := make([]any, 0, len(code)-1)
-	for idx, part := range code[1:] {
-		isRaw := false
-		switch cmd {
-		case "map", "filter", "one_card", "obj_get_by_path", "obj_get_val", "obj_set_by_path":
-			if idx == 1 {
-				isRaw = true
-			}
-		case "reduce":
-			if idx == 2 {
-				isRaw = true
-			}
-		case "for_each_key_val":
-			if idx == 3 {
-				isRaw = true
-			}
-		case "var":
-			if idx == 1 {
-				isRaw = true
-			}
-		case "cond", "while":
-			isRaw = true
-		}
-
-		if isRaw {
-			args = append(args, part)
-			continue
-		}
-
-		arg, err := EvaluateExpression(ctx, card, part)
-		if err != nil {
-			return nil, err
-		}
-		args = append(args, arg)
-	}
-
-	// Dispatch to registered function implementations.
-	res, err := GetDefaultEvaluator().EvalFunction(cmd, ctx, args)
-	if err != nil {
-		return nil, NewEvalError(err)
-	}
-	ctx.Prev = res
-	return res, nil
 }
 
 func resolveGamePath(ctx *game.EvalContext, card *game.Card, path string) (any, error) {
-	if path == "$GAME" {
+	if path == GamePathLiteral {
 		return ctx.Game, nil
 	}
-	if path == "$ACTIVE_CARD" {
+	if path == ActiveCardPathLiteral {
 		return card, nil
 	}
-	if strings.HasPrefix(path, "$GAME.") {
-		parts := strings.Split(path[len("$GAME."):], ".")
-		return getObjectByPath(ctx, card, ctx.Game, stringSliceToAny(parts))
+	if strings.HasPrefix(path, GamePathPrefix) {
+		parts := strings.Split(path[len(GamePathPrefix):], ".")
+		return getObjectByPath(ctx.Game, stringSliceToAny(parts))
 	}
-	if strings.HasPrefix(path, "$CARD.") {
+	if strings.HasPrefix(path, CardPathPrefix) {
 		if card == nil {
 			return nil, errors.New("no active card")
 		}
 		parts := strings.Split(path[len("$CARD."):], ".")
-		return getObjectByPath(ctx, card, card, stringSliceToAny(parts))
+		return getObjectByPath(card, stringSliceToAny(parts))
 	}
 	return path, nil
 }
@@ -138,7 +187,7 @@ func stringSliceToAny(s []string) []any {
 	return out
 }
 
-func getObjectByPath(ctx *EvalContext, card *game.Card, obj any, path []any) (any, error) {
+func getObjectByPath(obj any, path []any) (any, error) {
 	current := obj
 	for _, step := range path {
 		stepStr, ok := step.(string)

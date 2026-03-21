@@ -3,8 +3,9 @@ package persistence
 import (
 	"errors"
 
-	"github.com/ldmonster/dragncards/ha-be/internal/domain/deck"
 	"gorm.io/gorm"
+
+	"github.com/ldmonster/dragncards/ha-be/internal/domain/deck"
 )
 
 type GormDeckRepository struct {

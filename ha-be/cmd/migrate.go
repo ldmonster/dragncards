@@ -7,8 +7,9 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/ldmonster/dragncards/ha-be/config"
 	"github.com/spf13/cobra"
+
+	"github.com/ldmonster/dragncards/ha-be/config"
 )
 
 var migrateCfgPath string

@@ -2,69 +2,10 @@ package functions
 
 import (
 	"errors"
-	"math/rand"
 	"strconv"
-	"strings"
 
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/game"
 )
-
-// ConcatFunction joins two strings.
-type ConcatFunction struct{}
-
-func (*ConcatFunction) Name() string { return "concat" }
-func (*ConcatFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
-	if err := requireArgCount("concat", args, 2); err != nil {
-		return nil, err
-	}
-	a, err := requireStringArg("concat", args, 0)
-	if err != nil {
-		return nil, err
-	}
-	b, err := requireStringArg("concat", args, 1)
-	if err != nil {
-		return nil, err
-	}
-	return a + b, nil
-}
-
-// JoinStringFunction is an alias of concat.
-type JoinStringFunction struct{}
-
-func (*JoinStringFunction) Name() string { return "join_string" }
-func (*JoinStringFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
-	if err := requireArgCount("join_string", args, 2); err != nil {
-		return nil, err
-	}
-	a, err := requireStringArg("join_string", args, 0)
-	if err != nil {
-		return nil, err
-	}
-	b, err := requireStringArg("join_string", args, 1)
-	if err != nil {
-		return nil, err
-	}
-	return a + b, nil
-}
-
-// InStringFunction (case-sensitive contains).
-type InStringFunction struct{}
-
-func (*InStringFunction) Name() string { return "in_string" }
-func (*InStringFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
-	if err := requireArgCount("in_string", args, 2); err != nil {
-		return nil, err
-	}
-	L, err := requireStringArg("in_string", args, 0)
-	if err != nil {
-		return nil, err
-	}
-	R, err := requireStringArg("in_string", args, 1)
-	if err != nil {
-		return nil, err
-	}
-	return strings.Contains(L, R), nil
-}
 
 func resolveByPath(obj any, path []any) (any, error) {
 	current := obj
@@ -99,9 +40,9 @@ func resolveByPath(obj any, path []any) (any, error) {
 // ObjGetByPathFunction returns object field by path.
 type ObjGetByPathFunction struct{}
 
-func (*ObjGetByPathFunction) Name() string { return "obj_get_by_path" }
+func (*ObjGetByPathFunction) Name() string { return ObjGetByPathFunctionName }
 func (*ObjGetByPathFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
-	if err := requireArgCount("obj_get_by_path", args, 2); err != nil {
+	if err := requireArgCount(ObjGetByPathFunctionName, args, 2); err != nil {
 		return nil, err
 	}
 	obj := args[0]
@@ -115,7 +56,7 @@ func (*ObjGetByPathFunction) Execute(ctx *game.EvalContext, args []any) (any, er
 // ObjGetValFunction alias of obj_get_by_path.
 type ObjGetValFunction struct{}
 
-func (*ObjGetValFunction) Name() string { return "obj_get_val" }
+func (*ObjGetValFunction) Name() string { return ObjGetValFunctionName }
 func (*ObjGetValFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	return (&ObjGetByPathFunction{}).Execute(ctx, args)
 }
@@ -178,9 +119,9 @@ func setByPath(obj any, path []any, value any) (any, error) {
 // ObjSetByPathFunction sets object field by path (map or array indices).
 type ObjSetByPathFunction struct{}
 
-func (*ObjSetByPathFunction) Name() string { return "obj_set_by_path" }
+func (*ObjSetByPathFunction) Name() string { return ObjSetByPathFunctionName }
 func (*ObjSetByPathFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
-	if err := requireArgCount("obj_set_by_path", args, 3); err != nil {
+	if err := requireArgCount(ObjSetByPathFunctionName, args, 3); err != nil {
 		return nil, err
 	}
 	obj := args[0]
@@ -194,9 +135,9 @@ func (*ObjSetByPathFunction) Execute(ctx *game.EvalContext, args []any) (any, er
 // SetFunction adds or replaces key in map-style object.
 type SetFunction struct{}
 
-func (*SetFunction) Name() string { return "set" }
+func (*SetFunction) Name() string { return SetFunctionName }
 func (*SetFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
-	if err := requireArgCount("set", args, 3); err != nil {
+	if err := requireArgCount(SetFunctionName, args, 3); err != nil {
 		return nil, err
 	}
 	obj, ok := args[0].(map[string]any)
@@ -214,9 +155,9 @@ func (*SetFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 // ReduceFunction reduces list with accumulator and binary expression.
 type ReduceFunction struct{}
 
-func (*ReduceFunction) Name() string { return "reduce" }
+func (*ReduceFunction) Name() string { return ReduceFunctionName }
 func (*ReduceFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
-	if err := requireArgCount("reduce", args, 3); err != nil {
+	if err := requireArgCount(ReduceFunctionName, args, 3); err != nil {
 		return nil, err
 	}
 	list, ok := args[0].([]any)
@@ -248,17 +189,17 @@ func (*ReduceFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 // RandFunction produces random numeric values.
 type RandFunction struct{}
 
-func (*RandFunction) Name() string { return "rand" }
+func (*RandFunction) Name() string { return RandFunctionName }
 func (*RandFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	switch len(args) {
 	case 0:
-		return rand.Float64(), nil
+		return rng.Float64(), nil
 	case 1:
 		max, ok := asInt(args[0])
 		if !ok || max <= 0 {
 			return nil, errors.New("rand argument must be positive int")
 		}
-		return rand.Intn(max), nil
+		return rng.Intn(max), nil
 	case 2:
 		min, ok1 := asInt(args[0])
 		max, ok2 := asInt(args[1])
@@ -268,7 +209,7 @@ func (*RandFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 		if min >= max {
 			return nil, errors.New("rand min must be less than max")
 		}
-		return min + rand.Intn(max-min), nil
+		return min + rng.Intn(max-min), nil
 	default:
 		return nil, errors.New("rand accepts 0, 1 or 2 args")
 	}

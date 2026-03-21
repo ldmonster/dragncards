@@ -26,10 +26,6 @@ func (r *InMemoryDeckRepository) Save(d *deck.Deck) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	d.Updated = d.Updated
-	if _, ok := r.decks[d.ID]; !ok {
-		d.Created = d.Created
-	}
 	r.decks[d.ID] = d
 	return nil
 }

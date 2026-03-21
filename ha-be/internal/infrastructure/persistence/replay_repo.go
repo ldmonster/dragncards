@@ -26,10 +26,6 @@ func (r *InMemoryReplayRepository) Save(rp *replay.Replay) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	rp.Updated = rp.Updated
-	if _, ok := r.replays[rp.ID]; !ok {
-		rp.Created = rp.Created
-	}
 	r.replays[rp.ID] = rp
 	return nil
 }

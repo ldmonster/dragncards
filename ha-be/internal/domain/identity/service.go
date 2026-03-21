@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -16,11 +17,6 @@ var (
 	ErrTokenExpired       = errors.New("token expired")
 	ErrUserNotFound       = errors.New("user not found")
 )
-
-type tokenEntry struct {
-	UserID    string
-	ExpiresAt time.Time
-}
 
 type IdentityService struct {
 	repo       UserRepository

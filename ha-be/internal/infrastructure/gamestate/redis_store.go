@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ldmonster/dragncards/ha-be/internal/domain/game"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/ldmonster/dragncards/ha-be/internal/domain/game"
 )
 
 const redisKeyPrefix = "gamestate:"

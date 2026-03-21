@@ -3,8 +3,9 @@ package persistence
 import (
 	"errors"
 
-	"github.com/ldmonster/dragncards/ha-be/internal/domain/identity"
 	"gorm.io/gorm"
+
+	"github.com/ldmonster/dragncards/ha-be/internal/domain/identity"
 )
 
 type GormUserRepository struct {

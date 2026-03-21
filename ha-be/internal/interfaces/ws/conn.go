@@ -1,3 +1,4 @@
+//nolint:staticcheck
 package ws
 
 import (
@@ -5,6 +6,7 @@ import (
 	"errors"
 	"sync"
 
+	//nolint:staticcheck
 	"nhooyr.io/websocket"
 )
 

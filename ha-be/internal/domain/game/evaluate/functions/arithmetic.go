@@ -29,7 +29,7 @@ func parseTwoInts(operation string, args []any) (int, int, error) {
 	return x, y, nil
 }
 
-func (f *AddFunction) Name() string { return "add" }
+func (f *AddFunction) Name() string { return AddFunctionName }
 
 func (f *AddFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	x, y, err := parseTwoInts("add", args)
@@ -39,7 +39,7 @@ func (f *AddFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	return x + y, nil
 }
 
-func (f *SubFunction) Name() string { return "sub" }
+func (f *SubFunction) Name() string { return SubFunctionName }
 
 func (f *SubFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	x, y, err := parseTwoInts("sub", args)
@@ -49,7 +49,7 @@ func (f *SubFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	return x - y, nil
 }
 
-func (f *MulFunction) Name() string { return "mul" }
+func (f *MulFunction) Name() string { return MulFunctionName }
 
 func (f *MulFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	x, y, err := parseTwoInts("mul", args)
@@ -59,7 +59,7 @@ func (f *MulFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	return x * y, nil
 }
 
-func (f *DivFunction) Name() string { return "div" }
+func (f *DivFunction) Name() string { return DivFunctionName }
 
 func (f *DivFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	x, y, err := parseTwoInts("div", args)

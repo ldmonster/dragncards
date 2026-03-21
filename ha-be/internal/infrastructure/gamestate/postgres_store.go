@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ldmonster/dragncards/ha-be/internal/domain/game"
 	"gorm.io/gorm"
+
+	"github.com/ldmonster/dragncards/ha-be/internal/domain/game"
 )
 
 // gameStateRecord is the GORM model for the game_states table.

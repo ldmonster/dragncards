@@ -155,7 +155,3 @@ ifndef PASSWORD
 endif
 	@echo "$(EMAIL) $(PASSWORD) $(ALIAS)" | docker compose -f $(OFFLINE_COMPOSE) exec -T backend \
 		mix run /app/priv/batch_create_users.exs
-
-## -- ha-be lint -------------------------------------------------------------
-ha-be-lint: ## Run golangci-lint in ha-be
-	cd ha-be && golangci-lint run --config .golangci.yml ./...

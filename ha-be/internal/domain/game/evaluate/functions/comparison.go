@@ -100,7 +100,7 @@ func compareAnything(name string, args []any) (bool, error) {
 // EqFunction tests equality for ints or strings.
 type EqFunction struct{}
 
-func (f *EqFunction) Name() string { return "eq" }
+func (*EqFunction) Name() string { return EqFunctionName }
 
 func (f *EqFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	res, err := compareAnything("eq", args)
@@ -113,7 +113,7 @@ func (f *EqFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 // NeqFunction tests non-equality for ints or strings.
 type NeqFunction struct{}
 
-func (f *NeqFunction) Name() string { return "neq" }
+func (*NeqFunction) Name() string { return NeqFunctionName }
 
 func (f *NeqFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	res, err := compareAnything("neq", args)
@@ -126,7 +126,7 @@ func (f *NeqFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 // GtFunction tests greater-than for ints.
 type GtFunction struct{}
 
-func (f *GtFunction) Name() string { return "gt" }
+func (*GtFunction) Name() string { return GtFunctionName }
 
 func (f *GtFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	x, y, err := compareIntArgs("gt", args)
@@ -139,7 +139,7 @@ func (f *GtFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 // GteFunction tests greater-than-or-equal for ints.
 type GteFunction struct{}
 
-func (f *GteFunction) Name() string { return "gte" }
+func (*GteFunction) Name() string { return GteFunctionName }
 
 func (f *GteFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	x, y, err := compareIntArgs("gte", args)
@@ -152,7 +152,7 @@ func (f *GteFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 // LtFunction tests less-than for ints.
 type LtFunction struct{}
 
-func (f *LtFunction) Name() string { return "lt" }
+func (*LtFunction) Name() string { return LtFunctionName }
 
 func (f *LtFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	x, y, err := compareIntArgs("lt", args)
@@ -165,7 +165,7 @@ func (f *LtFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 // LteFunction tests less-than-or-equal for ints.
 type LteFunction struct{}
 
-func (f *LteFunction) Name() string { return "lte" }
+func (*LteFunction) Name() string { return LteFunctionName }
 
 func (f *LteFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	x, y, err := compareIntArgs("lte", args)
@@ -184,7 +184,7 @@ type OrFunction struct{}
 // NotFunction performs boolean NOT.
 type NotFunction struct{}
 
-func (f *AndFunction) Name() string { return "and" }
+func (f *AndFunction) Name() string { return AndFunctionName }
 
 func (f *AndFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	b1, b2, err := compareBoolArgs("and", args)
@@ -194,7 +194,7 @@ func (f *AndFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	return b1 && b2, nil
 }
 
-func (f *OrFunction) Name() string { return "or" }
+func (f *OrFunction) Name() string { return OrFunctionName }
 
 func (f *OrFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	b1, b2, err := compareBoolArgs("or", args)
@@ -204,7 +204,7 @@ func (f *OrFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	return b1 || b2, nil
 }
 
-func (f *NotFunction) Name() string { return "not" }
+func (f *NotFunction) Name() string { return NotFunctionName }
 
 func (f *NotFunction) Execute(ctx *game.EvalContext, args []any) (any, error) {
 	b, err := compareBoolArg1("not", args)

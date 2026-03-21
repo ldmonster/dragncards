@@ -17,7 +17,6 @@ type Logger struct {
 }
 
 func New(level string) *Logger {
-	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: false})
 	lvl := slog.LevelInfo
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "trace":
@@ -34,7 +33,7 @@ func New(level string) *Logger {
 		lvl = LevelFatal
 	}
 
-	handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: false, Level: lvl})
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: false, Level: lvl})
 	log := slog.New(handler)
 
 	return &Logger{Logger: log}

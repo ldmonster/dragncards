@@ -53,6 +53,11 @@ func (e *Evaluator) EvalFunction(name string, ctx *game.EvalContext, args []any)
 	return fn.Execute(ctx, args)
 }
 
+func (e *Evaluator) HasFunction(name string) bool {
+	_, ok := e.functions[name]
+	return ok
+}
+
 func (e *Evaluator) GetVariable(name string, ctx *game.EvalContext) (any, error) {
 	v, ok := e.variables[name]
 	if !ok {
