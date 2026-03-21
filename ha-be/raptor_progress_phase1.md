@@ -9,9 +9,10 @@ Track Phase1 implementation for Identity/Auth and related endpoints.
 - [x] `User` aggregate with GORM model tags
 - [x] `UserRepository` interface + in-memory impl (`persistence/user_repo.go`) + GORM impl (`persistence/user_repo_gorm.go`)
 - [x] `IdentityService` — register, authenticate, confirm-email, reset-password, token TTL from config
-- [x] Password hashing via `golang.org/x/crypto` (SHA-256 + salt; constant-time compare for offline build compatibility)
+- [x] `application/identity/` wrapper use-case layer (new lightweight adapter over domain service)
+- [x] Password hashing via `golang.org/x/crypto` (bcrypt; constant-time compare for offline build compatibility)
 - [x] `GenerateConfirmToken` / `GenerateResetToken` stored on user record
-- [x] Unit tests passing (`internal/domain/identity/service_test.go`)
+- [x] Unit tests passing (`internal/domain/identity/service_test.go`, `internal/interfaces/http/handler_test.go`)
 
 ### Auth platform (`internal/platform/auth/jwt.go`)
 - [x] HS256 JWT via `golang-jwt/jwt v4`

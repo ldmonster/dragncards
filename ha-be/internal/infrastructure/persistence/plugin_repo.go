@@ -10,10 +10,10 @@ import (
 var ErrPluginNotFound = errors.New("plugin not found")
 
 type InMemoryPluginRepository struct {
-	mu           sync.RWMutex
-	plugins      map[string]*plugin.Plugin
-	customCards  map[string]*plugin.CustomCard
-	permissions  map[string]*plugin.UserPluginPermission
+	mu          sync.RWMutex
+	plugins     map[string]*plugin.Plugin
+	customCards map[string]*plugin.CustomCard
+	permissions map[string]*plugin.UserPluginPermission
 }
 
 func NewInMemoryPluginRepository() *InMemoryPluginRepository {

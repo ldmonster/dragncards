@@ -66,9 +66,9 @@ compare progress files with implementation. No new features — only evaluation 
 
 ## TODO
 
-- [ ] Create `application/identity/` with use-case functions per plan folder structure
+- [x] Create `application/identity/` with use-case functions per plan folder structure (implemented)
 - [ ] Move identity HTTP handlers to `interfaces/http/identity/` package
-- [ ] Change confirm-email route to path param `:token` to match plan §5
+- [x] Change confirm-email route to path param `:token` to match plan §5 (already implemented, with legacy query fallback)
 - [ ] Persist confirm/reset tokens to DB (store on `users` table or separate table) to survive restarts
 
 ## Outcome
