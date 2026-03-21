@@ -11,6 +11,7 @@ import (
 
 	"github.com/ldmonster/dragncards/ha-be/internal/application/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
+	identityapp "github.com/ldmonster/dragncards/ha-be/internal/application/identity"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
 	settingsapp "github.com/ldmonster/dragncards/ha-be/internal/application/settings"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/alert"
@@ -25,7 +26,8 @@ import (
 
 func TestHealthEndpoint(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
@@ -59,7 +61,8 @@ func TestHealthEndpoint(t *testing.T) {
 
 func TestRegisterAndLogin(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
@@ -128,7 +131,8 @@ func TestRegisterAndLogin(t *testing.T) {
 
 func TestLogoutAndTokenRevoke(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
@@ -193,7 +197,8 @@ func TestLogoutAndTokenRevoke(t *testing.T) {
 
 func TestEmailConfirmAndReset(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
@@ -273,7 +278,8 @@ func TestEmailConfirmAndReset(t *testing.T) {
 
 func TestRoomsAndPluginsEndpoints(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
@@ -587,7 +593,8 @@ func TestRoomsAndPluginsEndpoints(t *testing.T) {
 
 func TestLfgAndAlertsRequireAuth(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
@@ -672,7 +679,8 @@ func TestLfgAndAlertsRequireAuth(t *testing.T) {
 
 func TestSettingsRequireAuth(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
@@ -773,7 +781,8 @@ func TestSettingsRequireAuth(t *testing.T) {
 
 func TestPluginCreateAndCustomCardRoutes(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)
@@ -895,7 +904,8 @@ func TestPluginCreateAndCustomCardRoutes(t *testing.T) {
 
 func TestAdminAndPluginPermissionEndpoints(t *testing.T) {
 	userRepo := persistence.NewInMemoryUserRepository()
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 
 	roomRepo := persistence.NewInMemoryRoomRepository()
 	roomSvc := room.NewService(roomRepo)

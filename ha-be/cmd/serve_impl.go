@@ -12,6 +12,7 @@ import (
 	"github.com/ldmonster/dragncards/ha-be/config"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
+	identityapp "github.com/ldmonster/dragncards/ha-be/internal/application/identity"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
 	settingsapp "github.com/ldmonster/dragncards/ha-be/internal/application/settings"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/alert"
@@ -82,7 +83,8 @@ func RunServe(configPath string) error {
 		settingsRepo = persistence.NewInMemorySettingsRepository()
 	}
 
-	identitySvc := identity.NewService(userRepo)
+	identityDomainSvc := identity.NewService(userRepo)
+	identitySvc := identityapp.NewService(identityDomainSvc)
 	roomSvc := room.NewService(roomRepo)
 	pluginSvc := plugin.NewService(pluginRepo)
 	deckSvc := deck.NewDeckService(deckRepo)

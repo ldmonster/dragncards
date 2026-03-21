@@ -12,6 +12,7 @@ import (
 
 	"github.com/ldmonster/dragncards/ha-be/internal/application/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/game"
+	identityapp "github.com/ldmonster/dragncards/ha-be/internal/application/identity"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
 	settingsapp "github.com/ldmonster/dragncards/ha-be/internal/application/settings"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/alert"
@@ -28,7 +29,7 @@ import (
 )
 
 type APIHandler struct {
-	identitySvc     *identity.IdentityService
+	identitySvc     *identityapp.Service
 	roomSvc         *room.RoomService
 	pluginSvc       *plugin.PluginService
 	gameSvc         *game.GameService
@@ -43,7 +44,7 @@ type APIHandler struct {
 	renewTTL        time.Duration
 }
 
-func NewAPIHandler(identitySvc *identity.IdentityService, roomSvc *room.RoomService, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.LfgService, alertSvc *alert.AlertService, settingsSvc *settingsapp.Service, mailer email.Mailer, recaptchaSecret string, authTTL, renewTTL time.Duration) *APIHandler {
+func NewAPIHandler(identitySvc *identityapp.Service, roomSvc *room.RoomService, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.LfgService, alertSvc *alert.AlertService, settingsSvc *settingsapp.Service, mailer email.Mailer, recaptchaSecret string, authTTL, renewTTL time.Duration) *APIHandler {
 	return &APIHandler{
 		identitySvc:     identitySvc,
 		roomSvc:         roomSvc,
@@ -61,7 +62,7 @@ func NewAPIHandler(identitySvc *identity.IdentityService, roomSvc *room.RoomServ
 	}
 }
 
-func NewAPIHandlerLegacy(identitySvc *identity.IdentityService, roomSvc *room.RoomService, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.LfgService, alertSvc *alert.AlertService) *APIHandler {
+func NewAPIHandlerLegacy(identitySvc *identityapp.Service, roomSvc *room.RoomService, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.LfgService, alertSvc *alert.AlertService) *APIHandler {
 	return NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, nil, nil, "", 30*time.Minute, 90*24*time.Hour)
 }
 

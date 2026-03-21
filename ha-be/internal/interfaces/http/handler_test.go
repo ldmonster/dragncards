@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ldmonster/dragncards/ha-be/internal/application/identity"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/identity"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/persistence"
 )
@@ -32,7 +33,8 @@ func TestAPIHandlerHealth(t *testing.T) {
 }
 
 func TestAPIHandlerRegister_InvalidJSON(t *testing.T) {
-	identityService := identity.NewService(persistence.NewInMemoryUserRepository())
+	identityDomainService := identity.NewService(persistence.NewInMemoryUserRepository())
+	identityService := identityapp.NewService(identityDomainService)
 	h := NewAPIHandlerLegacy(identityService, nil, nil, nil, nil, nil, nil, nil)
 
 	rr := httptest.NewRecorder()
@@ -53,7 +55,8 @@ func TestAPIHandlerRegister_InvalidJSON(t *testing.T) {
 }
 
 func TestAPIHandlerRegister_Success(t *testing.T) {
-	identityService := identity.NewService(persistence.NewInMemoryUserRepository())
+	identityDomainService := identity.NewService(persistence.NewInMemoryUserRepository())
+	identityService := identityapp.NewService(identityDomainService)
 	h := NewAPIHandlerLegacy(identityService, nil, nil, nil, nil, nil, nil, nil)
 
 	body := map[string]string{"email": "test@example.com", "password": "p@ssw0rd"}
@@ -83,7 +86,8 @@ func TestAPIHandlerRegister_Success(t *testing.T) {
 }
 
 func TestAPIHandlerRegisterConflict(t *testing.T) {
-	identityService := identity.NewService(persistence.NewInMemoryUserRepository())
+	identityDomainService := identity.NewService(persistence.NewInMemoryUserRepository())
+	identityService := identityapp.NewService(identityDomainService)
 	h := NewAPIHandlerLegacy(identityService, nil, nil, nil, nil, nil, nil, nil)
 
 	// Register once successfully
