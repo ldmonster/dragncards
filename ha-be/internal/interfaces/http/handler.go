@@ -1358,7 +1358,7 @@ func NewRouter(h *APIHandler) http.Handler {
 		r.Post("/admin_contact", h.AdminContact)
 		r.Post("/admin/update_user_patreon", h.AdminUpdateUserPatreon)
 
-			r.With(middleware.Auth).Route("/users/plugin_permission/{pluginID}", func(r chi.Router) {
+		r.With(middleware.Auth).Route("/users/plugin_permission/{pluginID}", func(r chi.Router) {
 			r.Get("/{userID}", h.PluginPermission)
 			r.Post("/{userID}", h.PluginPermission)
 			r.Delete("/{userID}", h.PluginPermission)
@@ -1367,10 +1367,10 @@ func NewRouter(h *APIHandler) http.Handler {
 		r.Post("/games", h.CreateGame)
 
 		r.With(middleware.Auth).Route("/settings", func(r chi.Router) {
-		r.Post("/", h.UpsertSetting)
-		r.Get("/{userID}/{pluginID}", h.GetSetting)
-		r.Delete("/{userID}/{pluginID}", h.DeleteSetting)
-	})
+			r.Post("/", h.UpsertSetting)
+			r.Get("/{userID}/{pluginID}", h.GetSetting)
+			r.Delete("/{userID}/{pluginID}", h.DeleteSetting)
+		})
 
 		r.Route("/decks", func(r chi.Router) {
 			r.Get("/", h.ListDecks)
@@ -1401,7 +1401,7 @@ func NewRouter(h *APIHandler) http.Handler {
 		r.Route("/alerts", func(r chi.Router) {
 			r.Get("/", h.ListAlerts)
 			r.Post("/", h.CreateAlert)
-	})
+		})
 	})
 
 	return r

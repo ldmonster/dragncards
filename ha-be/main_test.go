@@ -757,10 +757,10 @@ func TestSettingsRequireAuth(t *testing.T) {
 	}
 
 	var setting struct {
-		UserID string `json:"user_id"`
-		PluginID string `json:"plugin_id"`
-		CardAlt string `json:"card_alt"`
-		CardBackAlt string `json:"card_back_alt"`
+		UserID        string `json:"user_id"`
+		PluginID      string `json:"plugin_id"`
+		CardAlt       string `json:"card_alt"`
+		CardBackAlt   string `json:"card_back_alt"`
 		BackgroundAlt string `json:"background_alt"`
 	}
 	if err := json.NewDecoder(w.Result().Body).Decode(&setting); err != nil {
