@@ -15,9 +15,14 @@ import (
 	identityapp "github.com/ldmonster/dragncards/ha-be/internal/application/identity"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
 	settingsapp "github.com/ldmonster/dragncards/ha-be/internal/application/settings"
+	"github.com/ldmonster/dragncards/ha-be/internal/application/alert"
+	applicationRoom "github.com/ldmonster/dragncards/ha-be/internal/application/room"
+	applicationLfg "github.com/ldmonster/dragncards/ha-be/internal/application/lfg"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/alert"
 	deckDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/identity"
+	"github.com/ldmonster/dragncards/ha-be/internal/application/custom_content"
+	customContentDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/custom_content"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/lfg"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/plugin"
 	replayDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
@@ -57,6 +62,7 @@ func RunServe(configPath string) error {
 	var userRepo identity.UserRepository
 	var roomRepo room.RoomRepository
 	var pluginRepo plugin.PluginRepository
+	var customContentRepo customContentDomain.CustomContentRepository
 	var deckRepo deckDomain.DeckRepository
 	var replayRepo replayDomain.ReplayRepository
 	var lfgRepo lfg.LfgRepository
@@ -67,6 +73,7 @@ func RunServe(configPath string) error {
 		userRepo = persistence.NewGormUserRepository(db)
 		roomRepo = persistence.NewGormRoomRepository(db)
 		pluginRepo = persistence.NewGormPluginRepository(db)
+		customContentRepo = persistence.NewCustomContentRepository(pluginRepo)
 		deckRepo = persistence.NewGormDeckRepository(db)
 		replayRepo = persistence.NewGormReplayRepository(db)
 		lfgRepo = persistence.NewGormLfgRepository(db)
@@ -76,6 +83,7 @@ func RunServe(configPath string) error {
 		userRepo = persistence.NewInMemoryUserRepository()
 		roomRepo = persistence.NewInMemoryRoomRepository()
 		pluginRepo = persistence.NewInMemoryPluginRepository()
+		customContentRepo = persistence.NewCustomContentRepository(pluginRepo)
 		deckRepo = persistence.NewInMemoryDeckRepository()
 		replayRepo = persistence.NewInMemoryReplayRepository()
 		lfgRepo = persistence.NewInMemoryLfgRepository()
@@ -85,12 +93,17 @@ func RunServe(configPath string) error {
 
 	identityDomainSvc := identity.NewService(userRepo)
 	identitySvc := identityapp.NewService(identityDomainSvc)
-	roomSvc := room.NewService(roomRepo)
+	roomDomainSvc := room.NewService(roomRepo)
+	roomSvc := applicationRoom.NewService(roomDomainSvc)
 	pluginSvc := plugin.NewService(pluginRepo)
+	customContentDomainSvc := customContentDomain.NewService(customContentRepo)
+	customContentSvc := custom_content.NewService(customContentDomainSvc)
 	deckSvc := deck.NewDeckService(deckRepo)
 	replaySvc := replay.NewReplayService(replayRepo)
-	lfgSvc := lfg.NewService(lfgRepo)
-	alertSvc := alert.NewService(alertRepo)
+	lfgDomainSvc := lfg.NewService(lfgRepo)
+	lfgSvc := applicationLfg.NewService(lfgDomainSvc)
+	alertDomainSvc := alertDomain.NewService(alertRepo)
+	alertSvc := alert.NewService(alertDomainSvc)
 	gameRegistry := game.NewRoomRegistry()
 
 	var stateStore gamestate.GameStateStore
@@ -124,10 +137,10 @@ func RunServe(configPath string) error {
 	mailer := email.NewSMTPMailer("no-reply@dragncards.com", cfg.Email.SMTPHost, cfg.Email.SMTPPort, cfg.Email.SMTPUsername, cfg.Email.SMTPPassword)
 	identitySvc.SetTokenTTL(time.Duration(cfg.Auth.AccessLifetime)*time.Minute, time.Duration(cfg.Auth.RefreshLifetime)*time.Hour)
 	settingsSvc := settingsapp.NewService(settingsRepo)
-	apiHandler := httpapi.NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, settingsSvc, mailer, cfg.Recaptcha.SecretKey, time.Duration(cfg.Auth.AccessLifetime)*time.Minute, time.Duration(cfg.Auth.RefreshLifetime)*time.Hour)
+	apiHandler := httpapi.NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, customContentSvc, settingsSvc, mailer, cfg.Recaptcha.SecretKey, time.Duration(cfg.Auth.AccessLifetime)*time.Minute, time.Duration(cfg.Auth.RefreshLifetime)*time.Hour)
 	mux := http.NewServeMux()
 	hub := wsapi.NewHub()
-	mux.Handle("/be/socket", wsapi.NewWSHandler(hub, roomSvc, lfgSvc, gameSvc, replaySvc))
+	mux.Handle("/be/socket", wsapi.NewWSHandler(hub, roomDomainSvc, lfgDomainSvc, gameSvc, replaySvc))
 	mux.Handle("/be/", httpapi.NewRouter(apiHandler))
 
 	srv := &http.Server{Addr: fmt.Sprintf(":%d", cfg.Server.Port), Handler: mux}

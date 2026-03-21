@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"errors"
+
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/custom_content"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/plugin"
 )
@@ -17,7 +19,7 @@ func NewCustomContentRepository(pluginRepo plugin.PluginRepository) *CustomConte
 
 func (r *CustomContentRepositoryAdapter) Create(content *custom_content.CustomContent) error {
 	if content == nil {
-		return ErrInvalidPlugin
+		return errors.New("invalid custom content")
 	}
 	return r.pluginRepo.CreateCustomCard(&plugin.CustomCard{ID: content.ID, PluginID: content.PluginID, OwnerID: content.OwnerID, Name: content.Name, Data: content.Data})
 }

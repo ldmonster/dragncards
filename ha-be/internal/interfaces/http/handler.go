@@ -19,9 +19,9 @@ import (
 	"github.com/ldmonster/dragncards/ha-be/internal/application/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/application/room"
 	settingsapp "github.com/ldmonster/dragncards/ha-be/internal/application/settings"
-	"github.com/ldmonster/dragncards/ha-be/internal/domain/deck"
+	deckDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/deck"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/plugin"
-	"github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
+	replayDomain "github.com/ldmonster/dragncards/ha-be/internal/domain/replay"
 	"github.com/ldmonster/dragncards/ha-be/internal/domain/settings"
 	"github.com/ldmonster/dragncards/ha-be/internal/infrastructure/email"
 	identityhttp "github.com/ldmonster/dragncards/ha-be/internal/interfaces/http/identity"
@@ -67,8 +67,8 @@ func NewAPIHandler(identitySvc *identityapp.Service, roomSvc *room.Service, plug
 	}
 }
 
-func NewAPIHandlerLegacy(identitySvc *identityapp.Service, roomSvc *room.Service, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.Service, alertSvc *alert.Service, customContentSvc *custom_content.Service) *APIHandler {
-	return NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, customContentSvc, nil, "", 30*time.Minute, 90*24*time.Hour)
+func NewAPIHandlerLegacy(identitySvc *identityapp.Service, roomSvc *room.Service, pluginSvc *plugin.PluginService, gameSvc *game.GameService, deckSvc *deck.DeckService, replaySvc *replay.ReplayService, lfgSvc *lfg.Service, alertSvc *alert.Service) *APIHandler {
+	return NewAPIHandler(identitySvc, roomSvc, pluginSvc, gameSvc, deckSvc, replaySvc, lfgSvc, alertSvc, nil, nil, nil, "", 30*time.Minute, 90*24*time.Hour)
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
@@ -267,25 +267,6 @@ func (h *APIHandler) ListCustomCards(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(cards)
 }
 
-func (h *APIHandler) ListCustomContent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	pluginID := r.URL.Query().Get("plugin_id")
-	if pluginID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	cards, err := h.pluginSvc.ListCustomCards(pluginID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(cards)
-}
-
 func (h *APIHandler) CreateCustomCard(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -343,113 +324,6 @@ func (h *APIHandler) CreateCustomCard(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(card)
-}
-
-func (h *APIHandler) CreateCustomContent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	userID := middleware.GetUserIDFromContext(r.Context())
-	if userID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	var req struct {
-		PluginID string `json:"plugin_id"`
-		Name     string `json:"name"`
-		Data     string `json:"data"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	if req.PluginID == "" || req.Name == "" {
-		writeError(w, http.StatusBadRequest, "plugin_id and name required")
-		return
-	}
-	card, err := h.pluginSvc.CreateCustomCard(req.PluginID, userID, req.Name, req.Data)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(card)
-}
-
-func (h *APIHandler) DeleteCustomContent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	cardID := chi.URLParam(r, "cardID")
-	if cardID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	userID := middleware.GetUserIDFromContext(r.Context())
-	if userID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	card, err := h.pluginSvc.FindCustomCardByID(cardID)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	if card.OwnerID != userID {
-		isAdmin, err := h.identitySvc.IsAdmin(userID)
-		if err != nil || !isAdmin {
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-	}
-	if err := h.pluginSvc.DeleteCustomCard(cardID); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *APIHandler) ListMyCustomContent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	userID := chi.URLParam(r, "userID")
-	pluginID := chi.URLParam(r, "pluginID")
-	if userID == "" || pluginID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	cards, err := h.pluginSvc.ListCustomCardsByOwner(userID, pluginID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(cards)
-}
-
-func (h *APIHandler) ListAllCustomContent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	userID := chi.URLParam(r, "userID")
-	pluginID := chi.URLParam(r, "pluginID")
-	if userID == "" || pluginID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	cards, err := h.pluginSvc.ListCustomCards(pluginID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"user_id": userID, "plugin_id": pluginID, "cards": cards})
 }
 
 func roomsRouter(h *APIHandler) http.HandlerFunc {
